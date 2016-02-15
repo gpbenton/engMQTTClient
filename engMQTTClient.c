@@ -1,3 +1,27 @@
+/*
+The MIT License (MIT)
+
+Copyright (c) 2016 gpbenton
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -11,11 +35,18 @@
 #include "dev_HRF.h"
 #include "decoder.h"
 
-static const uint32_t sensorId = 0x149;
-static const uint8_t manufacturerId = 0x04;
-static const uint8_t productId = 0x3;
-static const uint8_t encryptId = 0xf2;
-static const char* mqttBrokerHost =  "raspberryPi.local";
+#define MQTT_TOPIC_BASE "energenie"
+#define MQTT_TOPIC_ETRV       "eTRV"
+#define MQTT_TOPIC_MIH005     "MIH005"
+#define MQTT_TOPIC_RCVD_TEMP  "TemperatureReport"
+#define MQTT_TOPIC_MAX_SENSOR_LENGTH  8          // length of string of largest sensorId
+                                                 // 16,777,215
+
+static const uint8_t engManufacturerId = 0x04;   // Energenie Manufacturer Id
+static const uint8_t eTRVProductId = 0x3;        // Product ID for eTRV
+static const uint8_t encryptId = 0xf2;           // Encryption ID for eTRV
+
+static const char* mqttBrokerHost =  "localhost";  // TODO configuration for other set ups
 static const int   mqttBrokerPort = 1883;
 static const int keepalive = 60;
 static const bool clean_session = true;
@@ -66,9 +97,7 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
         log4c_category_debug(clientlog, "Sending %d to socket %d",
                              onOff, socketNum);
 
-        //pthread_mutex_lock(&mutex);
         HRF_send_OOK_msg(cmd);
-        //pthread_mutex_unlock(&mutex);
 
     }else{
         log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, 
@@ -134,14 +163,9 @@ void my_log_callback(struct mosquitto *mosq, void *userdata, int level,
 // receive in variable length packet mode, display and resend. Data with swapped first 2 bytes
 int main(int argc, char **argv){
     		
-	//int option;
-	int quiet = 0;
-	uint8_t queued_data = FALSE;
     extern	uint8_t recieve_temp_report;
     extern char received_temperature[MAX_DATA_LENGTH];
     struct mosquitto *mosq = NULL;
-    //bool forcestop = false;
-    //int gotchar;
 	
     if (log4c_init()) {
         fprintf(stderr, "log4c_init() failed");
@@ -153,23 +177,8 @@ int main(int argc, char **argv){
     hrflog = log4c_category_get("hrf");
 
 
-	if (!quiet)
-		printf("Sending to %02x:%02x:%06x, encryption %02x\n",
-			   manufacturerId, productId, sensorId, encryptId);
-			   
-     if (queued_data) 
-        {
-        printf("queued data to be sent\n");			   
-        } else {
-        printf("No queued data to be sent, NIL command will be sent\n");      
-        }
-        
-        
 	if (!bcm2835_init())
 		return ERROR_ENER_INIT_FAIL;
-
-	//time_t currentTime;
-	//time_t monitorControlTime;
 
 	
 	// LED INIT
@@ -216,28 +225,42 @@ int main(int argc, char **argv){
         return ERROR_MOSQ_LOOP_START;
     }
 
-	//monitorControlTime = time(NULL);
 	while (1){
-		//currentTime = time(NULL);
+        uint32_t rcvdSensorId;
 		
-		HRF_receive_FSK_msg(encryptId, productId, manufacturerId, sensorId );
+		HRF_receive_FSK_msg(encryptId, eTRVProductId, engManufacturerId, &rcvdSensorId );
 
-		if (send_join_response)
-		{
-            log4c_category_debug(clientlog, "send Join response for sensorId %d", sensorId);
+        if (send_join_response) {
+            if ( join_manu_id == engManufacturerId &&
+                 join_prod_id == eTRVProductId) {
 
-			HRF_send_FSK_msg(HRF_make_FSK_msg(join_manu_id, encryptId, join_prod_id, join_sensor_id,
-											  2, PARAM_JOIN_RESP, 0), encryptId);
-			send_join_response = FALSE;
-		}
+                /* We got a join request for an eTRV */
+                log4c_category_debug(clientlog, "send Join response for sensorId %d", rcvdSensorId);
+
+                HRF_send_FSK_msg(
+                                 HRF_make_FSK_msg(join_manu_id, encryptId, join_prod_id, join_sensor_id,
+                                                  2, PARAM_JOIN_RESP, 0), 
+                                 encryptId);
+                send_join_response = FALSE;
+            } else {
+                log4c_category_info(clientlog, 
+                        "Received Join message for ManufacturerId:%d ProductId:%d SensorId:%d", 
+                        join_manu_id, join_prod_id, join_sensor_id);
+            }
+        }
 
         if (recieve_temp_report) {
-            log4c_category_debug(clientlog, "send NIL command for sensorId %d", sensorId);
-            HRF_send_FSK_msg(HRF_make_FSK_msg(manufacturerId, encryptId, productId, sensorId,
-                                              0), encryptId);
+            log4c_category_debug(clientlog, "send NIL command for sensorId %d", rcvdSensorId);
+            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                              eTRVProductId, rcvdSensorId, 0), 
+                             encryptId);
             log4c_category_info(clientlog, "Temperature=%s", received_temperature);
 
-            mosquitto_publish(mosq, NULL, "/energenie/eTRV/329", 
+            char mqttTopic[sizeof(MQTT_TOPIC_BASE) + sizeof(MQTT_TOPIC_ETRV) 
+                + sizeof(MQTT_TOPIC_RCVD_TEMP)  + MQTT_TOPIC_MAX_SENSOR_LENGTH + 4 + 1];
+            snprintf(mqttTopic, sizeof(mqttTopic), "/%s/%s/%d/%s", MQTT_TOPIC_BASE, MQTT_TOPIC_ETRV,
+                     rcvdSensorId, MQTT_TOPIC_RCVD_TEMP);
+            mosquitto_publish(mosq, NULL, mqttTopic, 
                               strlen(received_temperature), received_temperature, 0, false);
             recieve_temp_report = FALSE;  
         }

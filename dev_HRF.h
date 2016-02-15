@@ -193,8 +193,8 @@ void 	HRF_send_FSK_msg(uint8_t*, uint8_t);
 //void 	decryptMsg(uint8_t*, uint8_t);
 void 	encryptMsg(uint8_t, uint8_t*, uint8_t);
 void 	setupCrc(uint8_t*);
-void 	HRF_receive_FSK_msg(uint8_t, uint8_t, uint8_t, uint32_t);
-void 	msgNextState(uint8_t, uint8_t, uint8_t, uint32_t, msg_t*);
+void 	HRF_receive_FSK_msg(uint8_t, uint8_t, uint8_t, uint32_t *);
+void 	msgNextState(uint8_t, uint8_t, uint8_t, uint32_t *, msg_t*);
 char* 	getIdName(uint8_t);
 char* 	getValString(uint64_t, uint8_t, uint8_t);
 

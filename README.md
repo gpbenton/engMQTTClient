@@ -8,9 +8,9 @@ This uses the mosquitto MQTT client library to do the MQTT handling.  Communicat
 
 ## Status
 Early development. 
-I have tested 
-1) communication from one eTRV with a sensorId hard coded, which publishes to a fixed MQTT topic.
-2) receiving MQTT messages and sending ON/OFF commands to some energenie remote controlled sockets.
+I have tested : 
+* communication from one eTRV with a sensorId hard coded, which publishes to a fixed MQTT topic.  
+* receiving MQTT messages and sending ON/OFF commands to some energenie remote controlled sockets.
 
 ## Usage
 
@@ -20,7 +20,7 @@ Compile engMQTTClient using 'make'.
 
 Run the program using
 
-sudo LD\_LIBRARY\_PATH=/usr/local/lib ./engMQTTClient
+        sudo LD\_LIBRARY\_PATH=/usr/local/lib ./engMQTTClient
 
 assuming mosquitto and log4c have been placed in /usr/local/lib as per default.
 
@@ -33,7 +33,6 @@ The mosquitto MQTT library is released under the Eclipse Public License.
 The log4c logging library is released under the LGPL license.
 
 ## To Do
-[ ] Testing sending messages to eTRV
-[ ] Use more than one eTRV
-[ ] Determine MQTT Topic heirarchy
-[ ] Configuration File 
+* Testing sending messages to eTRV
+* Determine MQTT Topic heirarchy
+* Configuration File 

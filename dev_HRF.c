@@ -311,7 +311,7 @@ void setupCrc(uint8_t *buf){
 	buf[size] = val & 0x00FF;
 }	
 	
-void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, uint32_t sensorId )
+void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, uint32_t *sensorId )
 {
 	static uint16_t msg_cnt = 0;
 
@@ -360,13 +360,13 @@ void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufa
 
 
     if (recieve_temp_report) {
-        log4c_category_info(hrflog, "Msg=%d, SensorId=%d, Temperature=%s", msg_cnt, sensorId, received_temperature);
+        log4c_category_info(hrflog, "Msg=%d, SensorId=%d, Temperature=%s", msg_cnt, *sensorId, received_temperature);
     }
 }
 
 
 
-void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, uint32_t sensorId, msg_t *msgPtr){		// Switch and initialize next state
+void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, uint32_t *sensorId, msg_t *msgPtr){		// Switch and initialize next state
 	const char *temp;
 	switch (msgPtr->state)
 	{
@@ -417,20 +417,11 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
                 //printf("test2 %#08x\n", (msgPtr->value & 0xff));
 		
 		
-			 if (((sensorId & 0xff) == (msgPtr->value & 0xff)) &&
-                ((sensorId >> 8 & 0xff) == ((msgPtr->value >> 8) & 0xff)) &&
-                ((sensorId >> 16 & 0xff) == ((msgPtr->value >> 16) & 0xff)))
-            {
-                msgPtr->state = S_DATA_PARAMID;
-                msgPtr->recordBytesToRead = SIZE_DATA_PARAMID;
-               	log4c_category_debug(hrflog, " SensorID=%#08x", msgPtr->value);
-            }
-                        else
-            {
-                msgPtr->state = S_FINISH;
-                msgPtr->msgSize = 0;
-              
-            }
+            msgPtr->state = S_DATA_PARAMID;
+            msgPtr->recordBytesToRead = SIZE_DATA_PARAMID;
+            *sensorId = (msgPtr->value & 0x00ffffff);
+
+            log4c_category_debug(hrflog, " SensorID=%#08x", *sensorId);
 			
 			break;
 	/******************* start reading RECORDS  ********************/
