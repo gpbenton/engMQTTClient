@@ -1,0 +1,2 @@
+sudo LD_LIBRARY_PATH=/usr/local/lib  LOG4C_RCPATH=./log4crc ./engMQTTClient 
+

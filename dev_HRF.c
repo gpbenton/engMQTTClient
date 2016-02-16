@@ -5,7 +5,7 @@
  * I've made modifications
  * 1) Adding a mutex lock around send and receive functions
  * 2) Replacing printf with log statements
- *
+ * 3) Changed the parameters in send_OOK_msg
  */
 
 
@@ -163,14 +163,13 @@ void HRF_wait_for(uint8_t addr, uint8_t mask, uint8_t val){
 		ret = HRF_reg_R(addr);
 	} while ((ret & mask) != (val ? mask : 0));
 }
-void HRF_send_OOK_msg(uint8_t relayState)
+
+void HRF_send_OOK_msg(char address[10], int socketNum, int On)
 {
-	uint8_t buf[17];
+#define OOK_BUF_SIZE 17
+	uint8_t buf[OOK_BUF_SIZE];
 	uint8_t i;
 
-    ledControl(redLED, ledOn);
-    pthread_mutex_lock(&mutex);
-	HRF_config_OOK();
 	
 	buf[1] = 0x80;				// Preambule 32b enclosed in sync words
 	buf[2] = 0x00;
@@ -181,32 +180,88 @@ void HRF_send_OOK_msg(uint8_t relayState)
 		buf[i] = 8 + (i&1) * 6 + 128 + (i&2) * 48;				// address 20b * 4 = 10 Bytes
 	}
 	
-	if (relayState == 1)
-	{
-		log4c_category_debug(hrflog, "relay ON");
-	}
-	else
-	{
-		log4c_category_debug(hrflog, "relay OFF");
-	}
+    log4c_category_debug(hrflog, "Switch %d %s", socketNum, On?"On":"Off");
+    switch (socketNum) {
+        case 0:                     // All Sockets on Address
+            if (On) {
+                buf[15] = 0xEE;		// D0-high, D1-h		// all on
+                buf[16] = 0x8E;		// D2-l, D3-h
+            } else {
+                buf[15] = 0xEE;		// D0-high, D1-h		// all on
+                buf[16] = 0x8E;		// D2-l, D3-h
+            }
+            break;
+
+        case 1:
+            if (On) {
+                buf[15] = 0xEE;		// D0-high, D1-h		// S1 on
+                buf[16] = 0xEE;		// D2-h, D3-h
+            } else {
+                buf[15] = 0xEE;		// D0-high, D1-h		// S1 off
+                buf[16] = 0xE8;		// D2-h, D3-l
+            }
+            break;
+                
+        case 2:
+            if (On) {
+                buf[15] = 0x8E;		// D0-l, D1-h		// S2 on
+                buf[16] = 0xEE;		// D2-h, D3-h
+            } else {
+                buf[15] = 0x8E;		// D0-l, D1-h		// S2 off
+                buf[16] = 0xE8;		// D2-h, D3-l
+            }            
+            break;
+
+        case 3:
+            if (On) {
+                buf[15] = 0xE8;		// D0-high, D1-l		// S3 on
+                buf[16] = 0xEE;		// D2-h, D3-h
+            } else {
+                buf[15] = 0xE8;		// D0-high, D1-l		// S3 off
+                buf[16] = 0xE8;		// D2-h, D3-l
+            }
+            break;
+
+        case 4:
+            if (On) {
+                buf[15] = 0x88;		// D0-l, D1-l           // S4 on
+                buf[16] = 0xEE;		// D2-h, D3-h
+            } else {
+                buf[15] = 0x88;		// D0-l, D1-l		// S3 off
+                buf[16] = 0xE8;		// D2-h, D3-l
+            }
+            break;
+
+        default:
+            log4c_category_warn(hrflog, "Invalid socket number: %d", 
+                                socketNum);
+            return;
+
+    }
 	
-	if (relayState != 0)
-	{
-		//buf[15] = 0xEE;		// D0-high, D1-h		// All on
-		//buf[16] = 0x8E;		// D2-h, D3-h
-		buf[15] = 0xEE;		// D0-high, D1-h		// S1 on
-		buf[16] = 0xEE;		// D2-h, D3-h
-	}
-	else
-	{
-		//buf[15] = 0xEE;		// D0-high, D1-h		// All off
-		//buf[16] = 0x88;		// D2-h, D3-h
-		buf[15] = 0xEE;		// D0-high, D1-h		// S1 off
-		buf[16] = 0xE8;		// D2-h, D3-h
-	}
-	
+    ledControl(redLED, ledOn);
+    pthread_mutex_lock(&mutex);
+
+    // Put this inside the lock as it uses logBuffer in common
+    if (log4c_category_is_trace_enabled(hrflog)) {
+
+        logBufferUsedCount = 0;
+
+        for (i=1; i < OOK_BUF_SIZE; ++i) {
+            logBufferUsedCount += 
+                snprintf(&logBuffer[logBufferUsedCount],
+                         MSG_LOG_BUFFER_SIZE - logBufferUsedCount,
+                         "[%d]=%02x%c", i, buf[i], i%8==7?'\n':'\t');
+        }
+        logBuffer[MSG_LOG_BUFFER_SIZE - 1] = '\0';
+        log4c_category_log(hrflog, LOG4C_PRIORITY_TRACE, 
+                           "OOK msg sent\n%s", logBuffer);
+    }
+
+	HRF_config_OOK();
+
 	HRF_wait_for (ADDR_IRQFLAGS1, MASK_MODEREADY | MASK_TXREADY, TRUE);		// wait for ModeReady + TX ready
-	//bcm2835_gpio_write(RPI_V2_GPIO_P1_15, 1);					// Turn the led on Test
+	
 	HRF_reg_Wn(buf + 4, 0, 12);		// Send few more same messages
 
 	for (i = 0; i < 8; ++i)
@@ -216,8 +271,9 @@ void HRF_send_OOK_msg(uint8_t relayState)
 	}
 
 	HRF_wait_for (ADDR_IRQFLAGS2, MASK_PACKETSENT, TRUE);		// wait for Packet sent
-	//bcm2835_gpio_write(RPI_V2_GPIO_P1_15, 0);					// Turn the led off Test
+	
 	HRF_assert_reg_val(ADDR_IRQFLAGS2, MASK_FIFONOTEMPTY | MASK_FIFOOVERRUN, FALSE, "are all bytes sent?");
+
 	HRF_config_FSK();
 	HRF_wait_for (ADDR_IRQFLAGS1, MASK_MODEREADY, TRUE);			// wait for ModeReady
     pthread_mutex_unlock(&mutex);
@@ -265,13 +321,9 @@ void HRF_send_FSK_msg(uint8_t* buf, uint8_t encryptionId){
 	//for (i=1; i <= buf[MSG_REMAINING_LEN+1] + 1 ; ++i)
 		//printf("%02x, ",buf[i]);
 	//printf("\n\n");
-    if (log4c_category_is_debug_enabled(hrflog)) {
+    if (log4c_category_is_trace_enabled(hrflog)) {
 
-        logBuffer[0] = '\n';
-        logBuffer[1] = '\0';
-        logBufferUsedCount = 1;
-
-        log4c_category_debug(hrflog, "Msg Data Sent");
+        logBufferUsedCount = 0;
 
         for (i=1; i <= buf[MSG_REMAINING_LEN+1] + 1 ; ++i) {
             logBufferUsedCount += snprintf(&logBuffer[logBufferUsedCount],
@@ -280,7 +332,8 @@ void HRF_send_FSK_msg(uint8_t* buf, uint8_t encryptionId){
                                            i, buf[i], i%8==7?'\n':'\t');
         }
         logBuffer[MSG_LOG_BUFFER_SIZE - 1] = '\0';
-        log4c_category_debug(hrflog, logBuffer);
+        log4c_category_log(hrflog, LOG4C_PRIORITY_TRACE, 
+                           "Msg Data Sent\n%s", logBuffer);
     }
 
 	HRF_wait_for(ADDR_IRQFLAGS2, MASK_PACKETSENT, TRUE);					// wait for Packet sent
@@ -436,7 +489,7 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 		case S_DATA_PARAMID:					// Read record parameter identifier
 			msgPtr->paramId = msgPtr->value;
 			temp = getIdName(msgPtr->paramId);
-			log4c_category_debug(hrflog, "Parameter ID = %s", temp);
+			log4c_category_debug(hrflog, " ParameterID=%s", temp);
 			if (msgPtr->paramId == 0)			// Parameter identifier CRC. Go to CRC
 			{
 				msgPtr->state = S_CRC;
@@ -480,7 +533,7 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 			break;
 		case S_DATA_VAL:						// Read record data
 			temp = getValString(msgPtr->value, msgPtr->type >> 4, msgPtr->recordBytesToRead);
-			log4c_category_debug(hrflog, "value = %s", temp);
+			log4c_category_debug(hrflog, " value=%s", temp);
             strncpy(received_temperature, temp, MAX_DATA_LENGTH);
             received_temperature[MAX_DATA_LENGTH] = '\0';
 			msgPtr->state = S_DATA_PARAMID;
@@ -494,7 +547,7 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 			if ((int16_t)msgPtr->value == crc(msgPtr->buf + MSG_ENCR_START,
 			                                  msgPtr->bufCnt - (MSG_ENCR_START+2)))
 			{
-				log4c_category_debug(hrflog, "CRC OK\n");
+				log4c_category_debug(hrflog, " CRC OK");
 				if (msgPtr->gotJoin)
 				{
 					join_manu_id = msgPtr->manufId;
@@ -517,30 +570,33 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 				log4c_category_warn(hrflog, "Shouldn't be there more data?!");
 			msgPtr->msgSize = 1;
 
-            if (log4c_category_is_debug_enabled(hrflog)) {
+            if (log4c_category_is_trace_enabled(hrflog)) {
 
                 int i;
-                logBuffer[0] = '\n';
-                logBuffer[1] = '\0';
-                logBufferUsedCount = 1;
+                logBufferUsedCount = 0;
 
                 for (i = 0; i < msgPtr->bufCnt; ++i){
-                    logBufferUsedCount += snprintf(&logBuffer[logBufferUsedCount],
-                                                   MSG_LOG_BUFFER_SIZE - logBufferUsedCount,
-                                                   "[%d]=%02x%c", 
-                                                   i, msgPtr->buf[i], i%8==7?'\n':'\t');
+                    logBufferUsedCount += 
+                        snprintf(&logBuffer[logBufferUsedCount],
+                                 MSG_LOG_BUFFER_SIZE - logBufferUsedCount,
+                                 "[%d]=%02x%c", 
+                                 i, msgPtr->buf[i], i%8==7?'\n':'\t');
                 }
                 logBuffer[MSG_LOG_BUFFER_SIZE - 1] = '\0';
-                log4c_category_debug(hrflog, logBuffer);
+                log4c_category_log(hrflog, LOG4C_PRIORITY_TRACE, 
+                                   "Msg Data\n%s", logBuffer);
             }
 
 			msgPtr->bufCnt = 0;
 			msgPtr->value = 0;
-			HRF_clr_fifo();						// If there is an error, remaining of the message should be discarded
+			HRF_clr_fifo();						// If there is an error, 
+                                                // remaining of the message 
+                                                // should be discarded
 	
 			break;
 		default:
-			log4c_category_error(hrflog, "You are in an non existing state %d", msgPtr->state);
+			log4c_category_error(hrflog, "You are in an non existing state %d", 
+                                 msgPtr->state);
             break;
 	}
 }

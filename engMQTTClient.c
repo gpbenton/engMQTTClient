@@ -36,9 +36,14 @@ SOFTWARE.
 #include "decoder.h"
 
 #define MQTT_TOPIC_BASE "energenie"
+
 #define MQTT_TOPIC_ETRV       "eTRV"
 #define MQTT_TOPIC_MIH005     "MIH005"
+#define MQTT_TOPIC_ENER002    "ENER002"
+
 #define MQTT_TOPIC_RCVD_TEMP  "TemperatureReport"
+#define MQTT_TOPIC_SET_TEMP   "SetTemperature"
+
 #define MQTT_TOPIC_MAX_SENSOR_LENGTH  8          // length of string of largest sensorId
                                                  // 16,777,215
 
@@ -70,41 +75,94 @@ log4c_category_t* hrflog = NULL;
 void my_message_callback(struct mosquitto *mosq, void *userdata, 
                          const struct mosquitto_message *message)
 {
-    char *payload = (char *)message->payload;
-    char *topic = (char *)message->topic;
+    char **topics;
+    int topic_count;
+    int i;
 
     log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, "%s", __FUNCTION__);
 
-    if(message->payloadlen){
-        int socketNum;
-        int onOff;
-        int cmd;
+    if (mosquitto_sub_topic_tokenise(message->topic, &topics, &topic_count) 
+        != 
+        MOSQ_ERR_SUCCESS) {
+        log4c_category_error(clientlog, "Unable to tokenise topic");
+        return;
+    }
 
-        log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, 
-                           "%s %s", topic, payload);
+    if (log4c_category_is_trace_enabled(clientlog)) {
+        for (i=0; i<topic_count; i++) {
+            log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE,
+                               "%d: %s\n", i, topics[i]);
+        }
+    }
 
-        socketNum = payload[0] - '0';
-        if (socketNum < 1 || socketNum > 4) {
-            log4c_category_error(clientlog, "Invalid socket number: %d",
-                                 socketNum);
+    if (topic_count < 2) {
+        log4c_category_error(clientlog, "Invalid Topic count %d", topic_count);
+        mosquitto_sub_topic_tokens_free(&topics, topic_count);
+        return;
+    }
+
+    if (strcmp(MQTT_TOPIC_BASE, topics[1]) != 0) {
+        log4c_category_error(clientlog, "Received base topic %s", topics[1]);
+        mosquitto_sub_topic_tokens_free(&topics, topic_count);
+        return;
+    }
+
+    if (strcmp(MQTT_TOPIC_ENER002, topics[2]) == 0) {
+        // Message for plug in socket type ENER002
+
+        if (topic_count != 5) {
+            log4c_category_error(clientlog, "Invalid topic count(%d) for %s", 
+                                 topic_count,
+                                 MQTT_TOPIC_ENER002);
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
             return;
         }
 
-        onOff = payload[1] - '0';
-        onOff = (onOff)?0:1;
-        cmd = ((socketNum -1) * 2) + onOff;
+        if(message->payloadlen == 0) {
+            log4c_category_error(clientlog, "No Payload for %s", 
+                                 MQTT_TOPIC_ENER002);
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+            return;
+        }
 
-        log4c_category_debug(clientlog, "Sending %d to socket %d",
-                             onOff, socketNum);
 
-        ledControl(redLED, ledOn);
-        HRF_send_OOK_msg(cmd);
-        ledControl(redLED, ledOff);
+        char *address = topics[3];
+        char *device = topics[4];
+        int onOff;
+        int socketNum;
+
+        if (strcasecmp("On", message->payload) == 0) {
+            onOff = 1;
+        } else if (strcasecmp("Off", message->payload) == 0) {
+            onOff = 0;
+        } else {
+            log4c_category_error(clientlog, "Invalid Payload for %s", 
+                                 MQTT_TOPIC_ENER002);
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+            return;
+        }
+
+        socketNum = *device - '0';
+        // socket 0 means all for this address.  should this be allowed?
+        if (socketNum < 1 || socketNum > 4) {
+            log4c_category_error(clientlog, "Invalid socket number: %d",
+                                 socketNum);
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+            return;
+        }
+
+
+        log4c_category_debug(clientlog, "Sending %d to address:socket %s:%d",
+                             onOff, address, socketNum);
+
+        HRF_send_OOK_msg(address, socketNum, onOff);
 
     }else{
-        log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, 
-                           "%s (null)", message->topic);
+        log4c_category_warn(clientlog, 
+                           "Can't handle messages for %s yet", topics[2]);
     }
+
+    mosquitto_sub_topic_tokens_free(&topics, topic_count);
 }
 
 void my_connect_callback(struct mosquitto *mosq, void *userdata, int result)
@@ -115,7 +173,7 @@ void my_connect_callback(struct mosquitto *mosq, void *userdata, int result)
         log4c_category_log(clientlog, LOG4C_PRIORITY_NOTICE, 
                            "Connected to broker at %s", mqttBrokerHost);
         /* Subscribe to broker information topics on successful connect. */
-        mosquitto_subscribe(mosq, NULL, "plugs", 2);
+        mosquitto_subscribe(mosq, NULL, "/" MQTT_TOPIC_BASE "/#", 2);
     }else{
         log4c_category_log(clientlog, LOG4C_PRIORITY_WARN, 
                            "Connect Failed with error %d", result);
@@ -235,9 +293,7 @@ int main(int argc, char **argv){
 	while (1){
         uint32_t rcvdSensorId;
 		
-        ledControl(redLED, ledOn);
 		HRF_receive_FSK_msg(encryptId, eTRVProductId, engManufacturerId, &rcvdSensorId );
-        ledControl(redLED, ledOff);
 
         if (send_join_response) {
             if ( join_manu_id == engManufacturerId &&
@@ -246,12 +302,10 @@ int main(int argc, char **argv){
                 /* We got a join request for an eTRV */
                 log4c_category_debug(clientlog, "send Join response for sensorId %d", rcvdSensorId);
 
-                ledControl(redLED, ledOn);
                 HRF_send_FSK_msg(
                                  HRF_make_FSK_msg(join_manu_id, encryptId, join_prod_id, join_sensor_id,
                                                   2, PARAM_JOIN_RESP, 0), 
                                  encryptId);
-                ledControl(redLED, ledOff);
                 send_join_response = FALSE;
             } else {
                 log4c_category_info(clientlog, 
@@ -262,11 +316,9 @@ int main(int argc, char **argv){
 
         if (recieve_temp_report) {
             log4c_category_debug(clientlog, "send NIL command for sensorId %d", rcvdSensorId);
-            ledControl(redLED, ledOn);
             HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                               eTRVProductId, rcvdSensorId, 0), 
                              encryptId);
-            ledControl(redLED, ledOff);
             log4c_category_info(clientlog, "Temperature=%s", received_temperature);
 
             char mqttTopic[sizeof(MQTT_TOPIC_BASE) + sizeof(MQTT_TOPIC_ETRV) 

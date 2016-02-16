@@ -11,5 +11,11 @@ CFLAGS=-Wall
 
 $(APP_NAME): $(OBJ)
 
+engMQTTClient.o: engMQTTClient.c engMQTTClient.h dev_HRF.h 
+
+dev_HRF.o: dev_HRF.c dev_HRF.h decoder.h
+
+decoder.o: decoder.c decoder.h
+
 clean:
 	rm $(OBJ) $(APP_NAME)
