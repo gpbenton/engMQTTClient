@@ -12,7 +12,7 @@ It also uses the log4c logging library.
 ## Status
 Early development. 
 I have tested : 
-* communication from one eTRV with a sensorId hard coded, which publishes to a fixed MQTT topic.  
+* communication from one eTRV. 
 * receiving MQTT messages and sending ON/OFF commands to some energenie remote controlled sockets.
 
 ## Usage

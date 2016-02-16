@@ -168,6 +168,7 @@ void HRF_send_OOK_msg(uint8_t relayState)
 	uint8_t buf[17];
 	uint8_t i;
 
+    ledControl(redLED, ledOn);
     pthread_mutex_lock(&mutex);
 	HRF_config_OOK();
 	
@@ -220,7 +221,9 @@ void HRF_send_OOK_msg(uint8_t relayState)
 	HRF_config_FSK();
 	HRF_wait_for (ADDR_IRQFLAGS1, MASK_MODEREADY, TRUE);			// wait for ModeReady
     pthread_mutex_unlock(&mutex);
+    ledControl(redLED, ledOff);
 }
+
 uint8_t* HRF_make_FSK_msg(uint8_t manufacturerId, uint8_t encryptionId,
 						  uint8_t productId, uint32_t sensorId, uint8_t paramNum, ...){
 	uint8_t *msgData = (uint8_t*)malloc(MAX_FIFO_SIZE * sizeof(uint8_t));
@@ -249,6 +252,8 @@ uint8_t* HRF_make_FSK_msg(uint8_t manufacturerId, uint8_t encryptionId,
 void HRF_send_FSK_msg(uint8_t* buf, uint8_t encryptionId){
 	uint8_t size = buf[MSG_REMAINING_LEN+1], i;
 
+
+    ledControl(redLED, ledOn);
     pthread_mutex_lock(&mutex);
 
 	HRF_change_mode(MODE_TRANSMITER);									// Switch to TX mode
@@ -285,6 +290,7 @@ void HRF_send_FSK_msg(uint8_t* buf, uint8_t encryptionId){
 	HRF_wait_for(ADDR_IRQFLAGS1, MASK_MODEREADY, TRUE);						// wait for ModeReady
 
     pthread_mutex_unlock(&mutex);
+    ledControl(redLED, ledOff);
 
 	free(buf);
 	return;
@@ -315,6 +321,7 @@ void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufa
 {
 	static uint16_t msg_cnt = 0;
 
+    ledControl(redLED, ledOn);
     pthread_mutex_lock(&mutex);
 
 	if ((HRF_reg_R(ADDR_IRQFLAGS2) & MASK_PAYLOADRDY) == MASK_PAYLOADRDY)
@@ -357,6 +364,7 @@ void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufa
 	}
 
     pthread_mutex_unlock(&mutex);
+    ledControl(redLED, ledOff);
 
 
     if (recieve_temp_report) {
@@ -606,4 +614,9 @@ char* getValString(uint64_t dataVal, uint8_t type, uint8_t length){
 	}
 	return str;
 }
+
+void ledControl(enum ledColor led, enum ledOnOff OnOff) {
+	bcm2835_gpio_write(led, OnOff);
+}
+
 /* vim: set cindent sw=4 ts=4 expandtab path+=/usr/local/include : */

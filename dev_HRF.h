@@ -132,7 +132,19 @@
 #define MSG_ENCR_START    MSG_SENSOR_ID_2
 #define MSG_OVERHEAD_LEN  (MSG_DATA_START+2)
 
-#define MAX_DATA_LENGTH 256
+#define MAX_DATA_LENGTH MESSAGE_BUF_SIZE
+
+enum ledColor {
+    redLED = RPI_V2_GPIO_P1_15,
+    greenLED = RPI_V2_GPIO_P1_13
+};
+
+enum ledOnOff {
+    ledOff = LOW,
+    ledOn = HIGH
+};
+
+void ledControl(enum ledColor led, enum ledOnOff OnOff);
 
 typedef struct regSet_t {
 	uint8_t addr;

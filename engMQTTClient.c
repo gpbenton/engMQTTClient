@@ -97,7 +97,9 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
         log4c_category_debug(clientlog, "Sending %d to socket %d",
                              onOff, socketNum);
 
+        ledControl(redLED, ledOn);
         HRF_send_OOK_msg(cmd);
+        ledControl(redLED, ledOff);
 
     }else{
         log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, 
@@ -111,7 +113,7 @@ void my_connect_callback(struct mosquitto *mosq, void *userdata, int result)
 
     if(!result){
         log4c_category_log(clientlog, LOG4C_PRIORITY_NOTICE, 
-                           "Connected to broker ");
+                           "Connected to broker at %s", mqttBrokerHost);
         /* Subscribe to broker information topics on successful connect. */
         mosquitto_subscribe(mosq, NULL, "plugs", 2);
     }else{
@@ -177,15 +179,17 @@ int main(int argc, char **argv){
     hrflog = log4c_category_get("hrf");
 
 
-	if (!bcm2835_init())
+	if (!bcm2835_init()) {
+        log4c_category_crit(clientlog, "bcm2835_init() failed");
 		return ERROR_ENER_INIT_FAIL;
-
+    }
 	
 	// LED INIT
-	bcm2835_gpio_fsel(LEDG, BCM2835_GPIO_FSEL_OUTP);			// LED green
-	bcm2835_gpio_fsel(LEDR, BCM2835_GPIO_FSEL_OUTP);			// LED red
-	bcm2835_gpio_write(LEDG, LOW);
-	bcm2835_gpio_write(LEDR, LOW);
+	bcm2835_gpio_fsel(greenLED, BCM2835_GPIO_FSEL_OUTP);			// LED green
+	bcm2835_gpio_fsel(redLED, BCM2835_GPIO_FSEL_OUTP);			// LED red
+    ledControl(greenLED, ledOff);
+    ledControl(redLED, ledOn);
+
 	// SPI INIT
 	bcm2835_spi_begin();	
 	bcm2835_spi_setClockDivider(SPI_CLOCK_DIVIDER_26); 			// 250MHz / 26 = 9.6MHz
@@ -225,10 +229,15 @@ int main(int argc, char **argv){
         return ERROR_MOSQ_LOOP_START;
     }
 
+    ledControl(redLED, ledOff);
+    ledControl(greenLED, ledOn);
+
 	while (1){
         uint32_t rcvdSensorId;
 		
+        ledControl(redLED, ledOn);
 		HRF_receive_FSK_msg(encryptId, eTRVProductId, engManufacturerId, &rcvdSensorId );
+        ledControl(redLED, ledOff);
 
         if (send_join_response) {
             if ( join_manu_id == engManufacturerId &&
@@ -237,10 +246,12 @@ int main(int argc, char **argv){
                 /* We got a join request for an eTRV */
                 log4c_category_debug(clientlog, "send Join response for sensorId %d", rcvdSensorId);
 
+                ledControl(redLED, ledOn);
                 HRF_send_FSK_msg(
                                  HRF_make_FSK_msg(join_manu_id, encryptId, join_prod_id, join_sensor_id,
                                                   2, PARAM_JOIN_RESP, 0), 
                                  encryptId);
+                ledControl(redLED, ledOff);
                 send_join_response = FALSE;
             } else {
                 log4c_category_info(clientlog, 
@@ -251,9 +262,11 @@ int main(int argc, char **argv){
 
         if (recieve_temp_report) {
             log4c_category_debug(clientlog, "send NIL command for sensorId %d", rcvdSensorId);
+            ledControl(redLED, ledOn);
             HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                               eTRVProductId, rcvdSensorId, 0), 
                              encryptId);
+            ledControl(redLED, ledOff);
             log4c_category_info(clientlog, "Temperature=%s", received_temperature);
 
             char mqttTopic[sizeof(MQTT_TOPIC_BASE) + sizeof(MQTT_TOPIC_ETRV) 
@@ -298,7 +311,7 @@ int main(int argc, char **argv){
 							 encryptId);
 		}
 		*/
-        usleep(1000);
+        usleep(10000);
 	}
 	bcm2835_spi_end();
 	return 0;

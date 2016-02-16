@@ -7,8 +7,8 @@
                 <nocleanup>0</nocleanup>
         </config>
         <!-- category ========================================= -->
-        <category name="MQTTClient" priority="trace" appender="stderr" />
-        <category name="MQTTStack" priority="debug" appender="stderr" />
+        <category name="MQTTClient" priority="debug" appender="stderr" />
+        <category name="MQTTStack" priority="info" appender="stderr" />
         <category name="ENER314RT" priority="info" appender="stderr" />
         <category name="hrf" priority="debug" appender="stderr" />
         <!-- default appenders ===================================== -->
