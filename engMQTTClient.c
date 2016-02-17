@@ -31,6 +31,7 @@ SOFTWARE.
 #include <unistd.h>
 #include <log4c.h>
 #include <mosquitto.h>
+#include "ctype.h"
 #include "engMQTTClient.h"
 #include "dev_HRF.h"
 #include "decoder.h"
@@ -72,6 +73,43 @@ static log4c_category_t* stacklog = NULL;
 log4c_category_t* hrflog = NULL;
 
 
+void hexToBytes(uint8_t *bytes, char *hex) {
+
+    int hexlength = strlen(hex);
+    int bytelength = hexlength/2;
+    int i;
+
+    for (i = 0; i < hexlength; ++i) {
+        int high = hex[i*2];
+        int low = hex[(i*2) + 1];
+        high = (high & 0xf) + ((high & 0x40) >> 6) * 9;
+        low = (low & 0xf) + ((low & 0x40) >> 6) * 9;
+
+        bytes[i] = (high << 4) | low;
+    }
+
+    if (log4c_category_is_trace_enabled(clientlog)) {
+        int HEX_LOG_BUF_SIZE =  bytelength * 8;
+        char logBuffer[HEX_LOG_BUF_SIZE];
+        
+        int logBufferUsedCount = 0;
+
+        for (i=0; i < bytelength; ++i) {
+            logBufferUsedCount += 
+                snprintf(&logBuffer[logBufferUsedCount],
+                         HEX_LOG_BUF_SIZE - logBufferUsedCount,
+                         "[%d]=%02x%c", i, bytes[i], i%8==7?'\n':'\t');
+        }
+
+        logBuffer[HEX_LOG_BUF_SIZE - 1] = '\0';
+
+        log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, 
+                           "Converted %s to \n%s",
+                           hex,
+                           logBuffer);
+    }
+}
+
 void my_message_callback(struct mosquitto *mosq, void *userdata, 
                          const struct mosquitto_message *message)
 {
@@ -91,7 +129,7 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
     if (log4c_category_is_trace_enabled(clientlog)) {
         for (i=0; i<topic_count; i++) {
             log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE,
-                               "%d: %s\n", i, topics[i]);
+                               "%d: %s", i, topics[i]);
         }
     }
 
@@ -118,16 +156,30 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
             return;
         }
 
+#define MAX_OOK_ADDRESS_TOPIC_LENGTH (OOK_MSG_ADDRESS_LENGTH * 2)
+#define MAX_OOK_DEVICE_TOPIC_LENGTH  1
+
+        char address[MAX_OOK_ADDRESS_TOPIC_LENGTH + 1];
+        char device[MAX_OOK_DEVICE_TOPIC_LENGTH + 1];
+
+        strncpy(address, topics[3], MAX_OOK_ADDRESS_TOPIC_LENGTH);
+        address[MAX_OOK_ADDRESS_TOPIC_LENGTH] = '\0';
+        strncpy(device, topics[4], MAX_OOK_DEVICE_TOPIC_LENGTH);
+        device[MAX_OOK_DEVICE_TOPIC_LENGTH] = '\0';
+
+        log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, "Freeing tokens");
+
+        mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+        log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, "Tokens Freed");
+
+
         if(message->payloadlen == 0) {
             log4c_category_error(clientlog, "No Payload for %s", 
                                  MQTT_TOPIC_ENER002);
-            mosquitto_sub_topic_tokens_free(&topics, topic_count);
             return;
         }
 
-
-        char *address = topics[3];
-        char *device = topics[4];
         int onOff;
         int socketNum;
 
@@ -138,31 +190,54 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
         } else {
             log4c_category_error(clientlog, "Invalid Payload for %s", 
                                  MQTT_TOPIC_ENER002);
-            mosquitto_sub_topic_tokens_free(&topics, topic_count);
             return;
         }
 
         socketNum = *device - '0';
-        // socket 0 means all for this address.  should this be allowed?
-        if (socketNum < 1 || socketNum > 4) {
+        if (socketNum < 0 || socketNum > 4) {
             log4c_category_error(clientlog, "Invalid socket number: %d",
                                  socketNum);
-            mosquitto_sub_topic_tokens_free(&topics, topic_count);
             return;
         }
 
+        /* Check we only have hex digits in address */
+        int i;
+        for (i = 0; i < strlen(address); i++) {
+            if (isxdigit(address[i]) == 0) {
+                log4c_category_error(clientlog, 
+                                     "Address must only contain hex digits: %s",
+                                     address);
+                return;
+            }
+        }
+
+        uint8_t addressBytes[OOK_MSG_ADDRESS_LENGTH];
+        int paddedAddressLength = OOK_MSG_ADDRESS_LENGTH * 2;
+        int j;
+        char addressPadded[paddedAddressLength + 1];
+
+        // Pad the address with 0
+        for (i = 0; i < paddedAddressLength - strlen(address); i++) {
+            addressPadded[i] = '0';
+        }
+        for (j= 0; j < strlen(address); i++, j++) {
+            addressPadded[i] = address[j];
+        }
+        addressPadded[paddedAddressLength] = '\0'; 
+
+        // Convert to bytes
+        hexToBytes(addressBytes, addressPadded);
 
         log4c_category_debug(clientlog, "Sending %d to address:socket %s:%d",
-                             onOff, address, socketNum);
+                             onOff, addressPadded, socketNum);
 
-        HRF_send_OOK_msg(address, socketNum, onOff);
+        HRF_send_OOK_msg(addressBytes, socketNum, onOff);
 
     }else{
         log4c_category_warn(clientlog, 
                            "Can't handle messages for %s yet", topics[2]);
     }
 
-    mosquitto_sub_topic_tokens_free(&topics, topic_count);
 }
 
 void my_connect_callback(struct mosquitto *mosq, void *userdata, int result)

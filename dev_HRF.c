@@ -164,9 +164,8 @@ void HRF_wait_for(uint8_t addr, uint8_t mask, uint8_t val){
 	} while ((ret & mask) != (val ? mask : 0));
 }
 
-void HRF_send_OOK_msg(char address[10], int socketNum, int On)
+void HRF_send_OOK_msg(uint8_t *address, int socketNum, int On)
 {
-#define OOK_BUF_SIZE 17
 	uint8_t buf[OOK_BUF_SIZE];
 	uint8_t i;
 
@@ -177,7 +176,8 @@ void HRF_send_OOK_msg(char address[10], int socketNum, int On)
 	buf[4] = 0x00;
 	
 	for (i = 5; i <= 14; ++i){
-		buf[i] = 8 + (i&1) * 6 + 128 + (i&2) * 48;				// address 20b * 4 = 10 Bytes
+        buf[i] = address[i-5];
+		//buf[i] = 8 + (i&1) * 6 + 128 + (i&2) * 48;				// address 20b * 4 = 10 Bytes
 	}
 	
     log4c_category_debug(hrflog, "Switch %d %s", socketNum, On?"On":"Off");
@@ -188,7 +188,7 @@ void HRF_send_OOK_msg(char address[10], int socketNum, int On)
                 buf[16] = 0x8E;		// D2-l, D3-h
             } else {
                 buf[15] = 0xEE;		// D0-high, D1-h		// all on
-                buf[16] = 0x8E;		// D2-l, D3-h
+                buf[16] = 0x88;		// D2-l, D3-h
             }
             break;
 

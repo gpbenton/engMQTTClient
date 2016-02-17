@@ -134,6 +134,11 @@
 
 #define MAX_DATA_LENGTH MESSAGE_BUF_SIZE
 
+/* OOK Message Parameters */
+#define OOK_BUF_SIZE 17
+#define OOK_MSG_ADDRESS_LENGTH  10   /* 10 bytes in address */
+
+
 enum ledColor {
     redLED = RPI_V2_GPIO_P1_15,
     greenLED = RPI_V2_GPIO_P1_13
@@ -199,7 +204,7 @@ void 	HRF_reg_W(uint8_t, uint8_t);
 void 	HRF_change_mode(uint8_t);
 void 	HRF_assert_reg_val(uint8_t, uint8_t, uint8_t, char*);
 void 	HRF_wait_for(uint8_t, uint8_t, uint8_t);
-void	HRF_send_OOK_msg(char address [10], int socketNum, int On);
+void	HRF_send_OOK_msg(uint8_t *address, int socketNum, int On);
 uint8_t* HRF_make_FSK_msg(uint8_t, uint8_t, uint8_t, uint32_t, uint8_t, ...);
 void 	HRF_send_FSK_msg(uint8_t*, uint8_t);
 //void 	decryptMsg(uint8_t*, uint8_t);
