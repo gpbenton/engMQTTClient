@@ -38,15 +38,21 @@ SOFTWARE.
 
 #define MQTT_TOPIC_BASE "energenie"
 
+/* eTRV Topics */
 #define MQTT_TOPIC_ETRV       "eTRV"
-#define MQTT_TOPIC_MIH005     "MIH005"
-#define MQTT_TOPIC_ENER002    "ENER002"
+#define MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ETRV "/Command"
+#define MQTT_TOPIC_ETRV_REPORT  "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ETRV "/Report"
 
-#define MQTT_TOPIC_RCVD_TEMP  "TemperatureReport"
-#define MQTT_TOPIC_SET_TEMP   "SetTemperature"
+#define MQTT_TOPIC_TEMPERATURE  "Temperature"
+
+#define MQTT_TOPIC_RCVD_TEMP_COMMAND MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_TEMPERATURE
+#define MQTT_TOPIC_SENT_TEMP_REPORT  MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TEMPERATURE
 
 #define MQTT_TOPIC_MAX_SENSOR_LENGTH  8          // length of string of largest sensorId
-                                                 // 16,777,215
+                                                 // 16777215 (0xffffff)
+/* ENER002 Topics */
+#define MQTT_TOPIC_ENER002    "ENER002"
+#define MQTT_TOPIC_ENER002_COMMAND     "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ENER002
 
 static const uint8_t engManufacturerId = 0x04;   // Energenie Manufacturer Id
 static const uint8_t eTRVProductId = 0x3;        // Product ID for eTRV
@@ -73,6 +79,12 @@ static log4c_category_t* stacklog = NULL;
 log4c_category_t* hrflog = NULL;
 
 
+/* Converts hex string in hex to equivalent bytes
+ * in bytes.
+ * No input checking performed.  hex is expected
+ * to contain the exact number of characters 
+ * intended for output.
+ */
 void hexToBytes(uint8_t *bytes, char *hex) {
 
     int hexlength = strlen(hex);
@@ -248,7 +260,9 @@ void my_connect_callback(struct mosquitto *mosq, void *userdata, int result)
         log4c_category_log(clientlog, LOG4C_PRIORITY_NOTICE, 
                            "Connected to broker at %s", mqttBrokerHost);
         /* Subscribe to broker information topics on successful connect. */
-        mosquitto_subscribe(mosq, NULL, "/" MQTT_TOPIC_BASE "/#", 2);
+        mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_ENER002_COMMAND "/#", 2);
+
+        mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_ETRV_COMMAND "/#", 2);
     }else{
         log4c_category_log(clientlog, LOG4C_PRIORITY_WARN, 
                            "Connect Failed with error %d", result);
@@ -325,7 +339,7 @@ int main(int argc, char **argv){
 
 	// SPI INIT
 	bcm2835_spi_begin();	
-	bcm2835_spi_setClockDivider(SPI_CLOCK_DIVIDER_26); 			// 250MHz / 26 = 9.6MHz
+	bcm2835_spi_setClockDivider(SPI_CLOCK_DIVIDER_9p6MHZ); 		
 	bcm2835_spi_setDataMode(BCM2835_SPI_MODE0); 				// CPOL = 0, CPHA = 0
 	bcm2835_spi_chipSelect(BCM2835_SPI_CS1);					// chip select 1
 
@@ -394,12 +408,15 @@ int main(int argc, char **argv){
             HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                               eTRVProductId, rcvdSensorId, 0), 
                              encryptId);
-            log4c_category_info(clientlog, "Temperature=%s", received_temperature);
+            log4c_category_info(clientlog, "SensorId=%d Temperature=%s", 
+                                rcvdSensorId, received_temperature);
 
-            char mqttTopic[sizeof(MQTT_TOPIC_BASE) + sizeof(MQTT_TOPIC_ETRV) 
-                + sizeof(MQTT_TOPIC_RCVD_TEMP)  + MQTT_TOPIC_MAX_SENSOR_LENGTH + 4 + 1];
-            snprintf(mqttTopic, sizeof(mqttTopic), "/%s/%s/%d/%s", MQTT_TOPIC_BASE, MQTT_TOPIC_ETRV,
-                     rcvdSensorId, MQTT_TOPIC_RCVD_TEMP);
+            char mqttTopic[strlen(MQTT_TOPIC_SENT_TEMP_REPORT) 
+                            + MQTT_TOPIC_MAX_SENSOR_LENGTH 
+                            + 5 + 1];
+
+            snprintf(mqttTopic, sizeof(mqttTopic), "%s/%d", 
+                     MQTT_TOPIC_SENT_TEMP_REPORT, rcvdSensorId);
             mosquitto_publish(mosq, NULL, mqttTopic, 
                               strlen(received_temperature), received_temperature, 0, false);
             recieve_temp_report = FALSE;  

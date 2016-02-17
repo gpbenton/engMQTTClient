@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-#define SPI_CLOCK_DIVIDER_26	26
+// Clock Divider value 250MHz / 26 = 9.6MHz
+#define SPI_CLOCK_DIVIDER_9p6MHZ	26
 
 
 #endif /* APP_MAIN_H */
