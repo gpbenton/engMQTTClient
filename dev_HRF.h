@@ -66,6 +66,7 @@
 #define PARAM_VOLTAGE		0x76
 #define PARAM_TEMP_REPORT	0x74
 
+#define PARAM_IDENTIFY      0xBF
 
 #define PARAM_CRC			0x00
 
@@ -223,3 +224,5 @@ char* 	getValString(uint64_t, uint8_t, uint8_t);
 //const uint8_t sensor_id[3] = { 0xff, 0xff, 0xff };
 
 #endif /* DEV_HRF_H */
+
+/* vim: set ts=4 sw=4 */

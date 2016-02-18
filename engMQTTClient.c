@@ -32,7 +32,7 @@ SOFTWARE.
 #include <log4c.h>
 #include <mosquitto.h>
 #include <sys/queue.h>
-#include <semaphore.h>
+#include <pthread.h>
 #include "ctype.h"
 #include "engMQTTClient.h"
 #include "dev_HRF.h"
@@ -74,15 +74,16 @@ static const uint8_t encryptId = 0xf2;           // Encryption ID for eTRV
 
 static int err = 0;
 
-static pthread_mutext_t sensorListMutex;
-static LIST_HEAD(listhead, entry) sensorListHead;
+static pthread_mutex_t sensorListMutex;
+static TAILQ_HEAD(tailhead, entry) sensorListHead;
 
-struct listhead  *headp;
+struct tailhead  *headp;
 
 struct entry {
-    LIST_ENTRY(entry) entries;
+    TAILQ_ENTRY(entry) entries;
     int sensorId;
-
+    uint8_t command;
+    int value;
 };
 
 enum fail_codes {
@@ -98,6 +99,43 @@ static log4c_category_t* clientlog = NULL;
 static log4c_category_t* stacklog = NULL;
 log4c_category_t* hrflog = NULL;
 
+/* Adds a command and data to the list of things to be sent
+ * to an OpenThings type device
+ * TODO:  Replace duplicates commands (e.g. set temperature)
+ * TODO:  Prioritize IDENTITY commands
+ */
+void addCommandToSend(int deviceId, uint8_t command, int value) {
+
+    struct entry *newEntry = malloc(sizeof(struct entry));
+
+    newEntry->sensorId = deviceId;
+    newEntry->command = command;
+    newEntry->value = value;
+
+    log4c_category_debug(clientlog, "Adding command to send %d:%x:%d", deviceId, command, value);
+    pthread_mutex_lock(&sensorListMutex);
+    TAILQ_INSERT_TAIL(&sensorListHead, newEntry, entries);
+    pthread_mutex_unlock(&sensorListMutex);
+}
+
+struct entry * findCommandToSend(int deviceId) {
+
+    struct entry *p;
+
+    for (p = sensorListHead.tqh_first; p != NULL; p = p->entries.tqe_next) {
+        if (p->sensorId == deviceId) {
+            log4c_category_debug(clientlog, "Removing command to send %d:%x:%d", 
+                                 p->sensorId, p->command, p->value);
+            pthread_mutex_lock(&sensorListMutex);
+            TAILQ_REMOVE(&sensorListHead, p, entries);
+            pthread_mutex_unlock(&sensorListMutex);
+            return p;
+        }
+    }
+    // No commands
+    log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, "No Commands to send");
+    return NULL;
+}
 
 /* Converts hex string in hex to equivalent bytes
  * in bytes.
@@ -301,10 +339,8 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
                 return;
             }
 
-            log4c_category_info(clientlog, "Sending Identify to %s", sensorId);
 
-            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
-                                              eTRVProductId, intSensorId, 2, 0xBF , 0), encryptId);
+            addCommandToSend(intSensorId, PARAM_IDENTIFY, 0);
 
         } else {
             log4c_category_warn(clientlog, 
@@ -393,7 +429,7 @@ int main(int argc, char **argv){
     stacklog = log4c_category_get("MQTTStack");
     hrflog = log4c_category_get("hrf");
 
-    LIST_INIT(&sensorListHead);
+    TAILQ_INIT(&sensorListHead);
 
 	if (!bcm2835_init()) {
         log4c_category_crit(clientlog, "bcm2835_init() failed");
@@ -473,12 +509,36 @@ int main(int argc, char **argv){
         }
 
         if (recieve_temp_report) {
-            log4c_category_debug(clientlog, "send NIL command for sensorId %d", rcvdSensorId);
-            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
-                                              eTRVProductId, rcvdSensorId, 0), 
-                             encryptId);
-            //HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
-                                      //eTRVProductId, rcvdSensorId, 2, 0xBF , 0), encryptId);
+            struct entry *commandToSend = findCommandToSend(rcvdSensorId);
+
+            if (commandToSend) {
+                switch (commandToSend->command) {
+                    case PARAM_IDENTIFY:
+                        log4c_category_debug(clientlog, "Sending Identify to device %d", 
+                                             rcvdSensorId);
+                        HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                          eTRVProductId, rcvdSensorId, 2, 0xBF , 0),
+                                         encryptId);
+                        break;
+
+                    default:
+                        log4c_category_warn(clientlog, "Don't understand command to send %x", 
+                                            commandToSend->command);
+                        HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                          eTRVProductId, rcvdSensorId, 0), 
+                                         encryptId);
+                         break;
+                }
+                free(commandToSend);
+            } else {
+
+                log4c_category_debug(clientlog, "send NIL command for sensorId %d", rcvdSensorId);
+                HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                  eTRVProductId, rcvdSensorId, 0), 
+                                 encryptId);
+            }
+
+
             log4c_category_info(clientlog, "SensorId=%d Temperature=%s", 
                                 rcvdSensorId, received_temperature);
 
