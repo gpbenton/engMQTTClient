@@ -31,19 +31,27 @@ SOFTWARE.
 #include <unistd.h>
 #include <log4c.h>
 #include <mosquitto.h>
+#include <sys/queue.h>
+#include <semaphore.h>
 #include "ctype.h"
 #include "engMQTTClient.h"
 #include "dev_HRF.h"
 #include "decoder.h"
 
+/* MQTT Definitions */
+
 #define MQTT_TOPIC_BASE "energenie"
 
 /* eTRV Topics */
 #define MQTT_TOPIC_ETRV       "eTRV"
-#define MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ETRV "/Command"
-#define MQTT_TOPIC_ETRV_REPORT  "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ETRV "/Report"
+#define MQTT_TOPIC_COMMAND    "Command"
+#define MQTT_TOPIC_REPORT     "Report"
+
+#define MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ETRV "/" MQTT_TOPIC_COMMAND
+#define MQTT_TOPIC_ETRV_REPORT  "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ETRV "/" MQTT_TOPIC_REPORT
 
 #define MQTT_TOPIC_TEMPERATURE  "Temperature"
+#define MQTT_TOPIC_IDENTIFY     "Identify"
 
 #define MQTT_TOPIC_RCVD_TEMP_COMMAND MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_TEMPERATURE
 #define MQTT_TOPIC_SENT_TEMP_REPORT  MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TEMPERATURE
@@ -54,16 +62,28 @@ SOFTWARE.
 #define MQTT_TOPIC_ENER002    "ENER002"
 #define MQTT_TOPIC_ENER002_COMMAND     "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ENER002
 
-static const uint8_t engManufacturerId = 0x04;   // Energenie Manufacturer Id
-static const uint8_t eTRVProductId = 0x3;        // Product ID for eTRV
-static const uint8_t encryptId = 0xf2;           // Encryption ID for eTRV
-
 static const char* mqttBrokerHost =  "localhost";  // TODO configuration for other set ups
 static const int   mqttBrokerPort = 1883;
 static const int keepalive = 60;
 static const bool clean_session = true;
 
-int err = 0;
+/* OpenThings definitions */
+static const uint8_t engManufacturerId = 0x04;   // Energenie Manufacturer Id
+static const uint8_t eTRVProductId = 0x3;        // Product ID for eTRV
+static const uint8_t encryptId = 0xf2;           // Encryption ID for eTRV
+
+static int err = 0;
+
+static pthread_mutext_t sensorListMutex;
+static LIST_HEAD(listhead, entry) sensorListHead;
+
+struct listhead  *headp;
+
+struct entry {
+    LIST_ENTRY(entry) entries;
+    int sensorId;
+
+};
 
 enum fail_codes {
     ERROR_LOG4C_INIT=1,
@@ -245,6 +265,54 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
 
         HRF_send_OOK_msg(addressBytes, socketNum, onOff);
 
+    } else if (strcmp(MQTT_TOPIC_ETRV, topics[2]) == 0) {
+        // Message for eTRV Radiator Valve
+        
+        if (topic_count < 5) {
+            log4c_category_error(clientlog, "Invalid topic count(%d) for %s", 
+                                 topic_count,
+                                 MQTT_TOPIC_ETRV);
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+            return;
+        }
+        
+
+        if (strcmp(MQTT_TOPIC_COMMAND, topics[3]) != 0) {
+            log4c_category_error(clientlog, "Invalid command %s for %s", topics[3], topics[2]);
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+            return;
+        }
+
+
+        if (strcmp(MQTT_TOPIC_IDENTIFY, topics[4]) == 0) {
+            // Send Identify command to eTRV
+            //
+            char sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH + 1];
+            strncpy(sensorId, topics[5], MQTT_TOPIC_MAX_SENSOR_LENGTH);
+            sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH] = '\0';
+
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+            int intSensorId = atoi(sensorId);
+
+            if (intSensorId == 0) {
+                // Assume 0 isn't valid sensor id
+                log4c_category_error(clientlog, "SensorId must be an integer: %s", sensorId);
+                return;
+            }
+
+            log4c_category_info(clientlog, "Sending Identify to %s", sensorId);
+
+            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                              eTRVProductId, intSensorId, 2, 0xBF , 0), encryptId);
+
+        } else {
+            log4c_category_warn(clientlog, 
+                           "Can't handle %s commands for %s yet", topics[4], topics[2]);
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+        }
+
+
     }else{
         log4c_category_warn(clientlog, 
                            "Can't handle messages for %s yet", topics[2]);
@@ -325,6 +393,7 @@ int main(int argc, char **argv){
     stacklog = log4c_category_get("MQTTStack");
     hrflog = log4c_category_get("hrf");
 
+    LIST_INIT(&sensorListHead);
 
 	if (!bcm2835_init()) {
         log4c_category_crit(clientlog, "bcm2835_init() failed");
@@ -408,6 +477,8 @@ int main(int argc, char **argv){
             HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                               eTRVProductId, rcvdSensorId, 0), 
                              encryptId);
+            //HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                      //eTRVProductId, rcvdSensorId, 2, 0xBF , 0), encryptId);
             log4c_category_info(clientlog, "SensorId=%d Temperature=%s", 
                                 rcvdSensorId, received_temperature);
 
