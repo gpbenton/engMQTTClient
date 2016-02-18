@@ -83,7 +83,7 @@ struct entry {
     TAILQ_ENTRY(entry) entries;
     int sensorId;
     uint8_t command;
-    int value;
+    uint32_t data;
 };
 
 enum fail_codes {
@@ -104,13 +104,13 @@ log4c_category_t* hrflog = NULL;
  * TODO:  Replace duplicates commands (e.g. set temperature)
  * TODO:  Prioritize IDENTITY commands
  */
-void addCommandToSend(int deviceId, uint8_t command, int value) {
+void addCommandToSend(int deviceId, uint8_t command, uint32_t value) {
 
     struct entry *newEntry = malloc(sizeof(struct entry));
 
     newEntry->sensorId = deviceId;
     newEntry->command = command;
-    newEntry->value = value;
+    newEntry->data = value;
 
     log4c_category_debug(clientlog, "Adding command to send %d:%x:%d", deviceId, command, value);
     pthread_mutex_lock(&sensorListMutex);
@@ -125,7 +125,7 @@ struct entry * findCommandToSend(int deviceId) {
     for (p = sensorListHead.tqh_first; p != NULL; p = p->entries.tqe_next) {
         if (p->sensorId == deviceId) {
             log4c_category_debug(clientlog, "Removing command to send %d:%x:%d", 
-                                 p->sensorId, p->command, p->value);
+                                 p->sensorId, p->command, p->data);
             pthread_mutex_lock(&sensorListMutex);
             TAILQ_REMOVE(&sensorListHead, p, entries);
             pthread_mutex_unlock(&sensorListMutex);
@@ -342,6 +342,41 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
 
             addCommandToSend(intSensorId, PARAM_IDENTIFY, 0);
 
+        } else if (strcmp(MQTT_TOPIC_TEMPERATURE, topics[4]) == 0) {
+            // Send set temperature command to eTRV
+            char sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH + 1];
+            strncpy(sensorId, topics[5], MQTT_TOPIC_MAX_SENSOR_LENGTH);
+            sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH] = '\0';
+
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+            int intSensorId = atoi(sensorId);
+
+            if (intSensorId == 0) {
+                // Assume 0 isn't valid sensor id
+                log4c_category_error(clientlog, "SensorId must be an integer: %s", sensorId);
+                return;
+            }
+
+            if (message->payloadlen > 2) {
+                log4c_category_error(clientlog, "Payload for set temperature must be 1 or 2 "
+                                                "digits in length");
+                return;
+            }
+
+            char tempString[message->payloadlen+1];
+            strncpy(tempString, message->payload, message->payloadlen);
+            tempString[message->payloadlen] = '\0';
+
+            uint32_t temperature = strtoul(tempString, NULL, 0);
+
+            if (temperature < 4 || temperature > 30) {
+                log4c_category_error(clientlog, "Temperature must be between 4 and 30, got %d",
+                                     temperature);
+                return;
+            }
+
+            addCommandToSend(intSensorId, PARAM_TEMP_SET, temperature);
         } else {
             log4c_category_warn(clientlog, 
                            "Can't handle %s commands for %s yet", topics[4], topics[2]);
@@ -518,6 +553,17 @@ int main(int argc, char **argv){
                                              rcvdSensorId);
                         HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                                           eTRVProductId, rcvdSensorId, 2, 0xBF , 0),
+                                         encryptId);
+                        break;
+
+                    case PARAM_TEMP_SET:
+                        log4c_category_debug(clientlog, "Sending Set Temperature %d to device %d",
+                                             commandToSend->data, rcvdSensorId);
+                        HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                          eTRVProductId, rcvdSensorId,
+                                                          4, PARAM_TEMP_SET, 0x92, 
+                                                          (commandToSend->data & 0xff), 
+                                                          (commandToSend->data >> 8 & 0xff)), 
                                          encryptId);
                         break;
 
