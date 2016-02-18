@@ -13,7 +13,8 @@ It also uses the log4c logging library.
 Early development. 
 I have tested : 
 * communication from one eTRV. 
-* receiving MQTT messages and sending ON/OFF commands to some energenie remote controlled sockets.
+* receiving MQTT messages 
+* sending ON/OFF commands to ENER002 remote controlled sockets.
 
 ## Usage
 
@@ -27,6 +28,22 @@ Run the program using
 
 assuming mosquitto and log4c have been placed in /usr/local/lib as per default.
 
+### MQTT Topic structure
+
+For ENER002 sockets, using its own protocol the structure is
+        /energenie/ENER002/_address_/_socketnum_
+
+        _address_ is an (up to) 20 digit hex string 
+        _socketnum_ is 0-4.  0 addresses all the sockets accessed by address, 1-4 access individual sockets at that address.
+
+For eTRV (and hopefully other OpenThings protocol devices) the structure to send command to device is
+        /energenie/eTRV/Command/_commandid_/_deviceid_
+
+To receive commands the structure is
+        /energenie/eTRV/Report/_commandid_/_deviceid_
+
+        _commandid_ is the command sent or received (so far "Identity" or "Temperature")
+        _deviceid_ is the openThing id number for the device in decimal
 
 ## License
 This code is published under the MIT License.  The last sentence is important.  If running this code causes your device to fail, I'm not responsible.
