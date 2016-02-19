@@ -52,9 +52,11 @@ SOFTWARE.
 
 #define MQTT_TOPIC_TEMPERATURE  "Temperature"
 #define MQTT_TOPIC_IDENTIFY     "Identify"
+#define MQTT_TOPIC_TARGET_TEMPERATURE "TargetTemperature"
 
 #define MQTT_TOPIC_RCVD_TEMP_COMMAND MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_TEMPERATURE
 #define MQTT_TOPIC_SENT_TEMP_REPORT  MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TEMPERATURE
+#define MQTT_TOPIC_SENT_TARGET_TEMP     MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TARGET_TEMPERATURE
 
 #define MQTT_TOPIC_MAX_SENSOR_LENGTH  8          // length of string of largest sensorId
                                                  // 16777215 (0xffffff)
@@ -565,6 +567,24 @@ int main(int argc, char **argv){
                                                           (commandToSend->data & 0xff), 
                                                           (commandToSend->data >> 8 & 0xff)), 
                                          encryptId);
+
+                        {
+                            // Report temperature set to MQTT broker
+                            char mqttTempSetTopic[strlen(MQTT_TOPIC_SENT_TARGET_TEMP) 
+                                + MQTT_TOPIC_MAX_SENSOR_LENGTH 
+                                + 5 + 1];
+
+                            snprintf(mqttTempSetTopic, sizeof(mqttTempSetTopic), "%s/%d", 
+                                     MQTT_TOPIC_SENT_TARGET_TEMP, rcvdSensorId);
+
+                            // Should only be 1 or 2 digits for temperature
+                            char temperature[5];
+                            snprintf(temperature, 4, "%d", commandToSend->data);
+
+                            mosquitto_publish(mosq, NULL, mqttTempSetTopic, 
+                                              strlen(temperature), temperature,
+                                              0, false);
+                        }
                         break;
 
                     default:
