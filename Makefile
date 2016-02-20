@@ -11,9 +11,9 @@ CFLAGS=-Wall
 
 $(APP_NAME): $(OBJ)
 
-engMQTTClient.o: engMQTTClient.c engMQTTClient.h dev_HRF.h 
+engMQTTClient.o: engMQTTClient.c engMQTTClient.h dev_HRF.h  OpenThings.h
 
-dev_HRF.o: dev_HRF.c dev_HRF.h decoder.h
+dev_HRF.o: dev_HRF.c dev_HRF.h decoder.h OpenThings.h
 
 decoder.o: decoder.c decoder.h
 

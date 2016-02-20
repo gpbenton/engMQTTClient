@@ -50,35 +50,6 @@
 #define MASK_MODULATION		0x18
 #define MASK_PAYLOADRDY		0x04
 
-#define PARAM_JOIN_RESP		0x6A
-#define PARAM_JOIN_CMD		0xEA
-#define PARAM_POWER			0x70
-#define PARAM_REACTIVE_P	0x71
-
-#define PARAM_CURRENT		0x69
-#define PARAM_ACTUATE_SW	0xF3
-#define PARAM_FREQUENCY		0x66
-#define PARAM_TEST			0xAA
-#define PARAM_SW_STATE		0x73
-#define PARAM_TEMP_SET		0xf4
-
-
-#define PARAM_VOLTAGE		0x76
-#define PARAM_TEMP_REPORT	0x74
-
-#define PARAM_IDENTIFY      0xBF
-
-#define PARAM_CRC			0x00
-
-#define SIZE_MSGLEN			1
-#define SIZE_MANUF_ID       1
-#define SIZE_PRODID			1
-#define SIZE_ENCRYPTPIP		2
-#define SIZE_SENSORID		3
-#define SIZE_DATA_PARAMID	1
-#define SIZE_DATA_TYPEDESC	1
-#define SIZE_CRC			2
-
 /* Precise register description can be found on: 
  * www.hoperf.com/upload/rf/RFM69W-V1.3.pdf
  * on page 63 - 74

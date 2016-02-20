@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include "decoder.h"
 #include "dev_HRF.h"
+#include "OpenThings.h"
 
 #define MSG_LOG_BUFFER_SIZE (MESSAGE_BUF_SIZE * 8)
 static char logBuffer[MSG_LOG_BUFFER_SIZE];
@@ -501,14 +502,14 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 				msgPtr->state = S_DATA_TYPEDESC;
 				msgPtr->recordBytesToRead = SIZE_DATA_TYPEDESC;
 				
-				if (msgPtr->paramId == PARAM_JOIN_CMD)
+				if (msgPtr->paramId == OT_JOIN_CMD)
 				{
 					msgPtr->gotJoin = 1;
 					
 				}
 				
 				
-				if (msgPtr->paramId == PARAM_TEMP_REPORT)
+				if (msgPtr->paramId == OT_TEMP_REPORT)
 				{
 		
 				   recieve_temp_report = TRUE;			
@@ -603,27 +604,27 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 char* getIdName(uint8_t val){
 	static char name[2];
 	switch (val){
-		case PARAM_JOIN_CMD:
+		case OT_JOIN_CMD:
 			return "Join";
-		case PARAM_JOIN_RESP:
+		case OT_JOIN_RESP:
 			return "Join_response";
-		case PARAM_POWER:
+		case OT_POWER:
 			return "Power";
-		case PARAM_REACTIVE_P:
+		case OT_REACTIVE_P:
 			return "Reactive_P";
-		case PARAM_VOLTAGE:
+		case OT_VOLTAGE:
 			return "Voltage";
-		case PARAM_CURRENT:
+		case OT_CURRENT:
 			return "Current";
-		case PARAM_ACTUATE_SW:
+		case OT_ACTUATE_SW:
 			return "Actuate_switch";
-		case PARAM_FREQUENCY:
+		case OT_FREQUENCY:
 			return "Frequency";
-		case PARAM_TEST:
+		case OT_TEST:
 			return "Test";
-		case PARAM_SW_STATE:
+		case OT_SW_STATE:
 			return "Switch_state";
-		case PARAM_CRC:
+		case OT_CRC:
 			return "CRC";
 		default:
 			if ((val>='a' && val <= 'z') || (val >= 'A' && val <= 'Z'))

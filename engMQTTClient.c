@@ -36,6 +36,7 @@ SOFTWARE.
 #include "ctype.h"
 #include "engMQTTClient.h"
 #include "dev_HRF.h"
+#include "OpenThings.h"
 #include "decoder.h"
 
 /* MQTT Definitions */
@@ -50,6 +51,10 @@ SOFTWARE.
 #define MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ETRV "/" MQTT_TOPIC_COMMAND
 #define MQTT_TOPIC_ETRV_REPORT  "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ETRV "/" MQTT_TOPIC_REPORT
 
+#define MQTT_TOPIC_BASE_INDEX 1
+#define MQTT_TOPIC_DEVICE_INDEX 2
+#define MQTT_TOPIC_COMMAND_INDEX 3
+
 #define MQTT_TOPIC_TEMPERATURE  "Temperature"
 #define MQTT_TOPIC_IDENTIFY     "Identify"
 #define MQTT_TOPIC_TARGET_TEMPERATURE "TargetTemperature"
@@ -58,11 +63,20 @@ SOFTWARE.
 #define MQTT_TOPIC_SENT_TEMP_REPORT  MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TEMPERATURE
 #define MQTT_TOPIC_SENT_TARGET_TEMP     MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TARGET_TEMPERATURE
 
+#define MQTT_TOPIC_TYPE_INDEX 4
+#define MQTT_TOPIC_SENSORID_INDEX 5
+
+#define MQTT_TOPIC_ETRV_MAX_INDEX MQTT_TOPIC_SENSORID_INDEX
+
 #define MQTT_TOPIC_MAX_SENSOR_LENGTH  8          // length of string of largest sensorId
                                                  // 16777215 (0xffffff)
 /* ENER002 Topics */
 #define MQTT_TOPIC_ENER002    "ENER002"
 #define MQTT_TOPIC_ENER002_COMMAND     "/" MQTT_TOPIC_BASE "/" MQTT_TOPIC_ENER002
+
+#define MQTT_TOPIC_OOK_ADDRESS_INDEX 3
+#define MQTT_TOPIC_OOK_SOCKET_INDEX 4
+#define MQTT_TOPIC_ENER002_MAX_INDEX 5
 
 static const char* mqttBrokerHost =  "localhost";  // TODO configuration for other set ups
 static const int   mqttBrokerPort = 1883;
@@ -211,16 +225,16 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
         return;
     }
 
-    if (strcmp(MQTT_TOPIC_BASE, topics[1]) != 0) {
-        log4c_category_error(clientlog, "Received base topic %s", topics[1]);
+    if (strcmp(MQTT_TOPIC_BASE, topics[MQTT_TOPIC_BASE_INDEX]) != 0) {
+        log4c_category_error(clientlog, "Received base topic %s", topics[MQTT_TOPIC_BASE_INDEX]);
         mosquitto_sub_topic_tokens_free(&topics, topic_count);
         return;
     }
 
-    if (strcmp(MQTT_TOPIC_ENER002, topics[2]) == 0) {
+    if (strcmp(MQTT_TOPIC_ENER002, topics[MQTT_TOPIC_DEVICE_INDEX]) == 0) {
         // Message for plug in socket type ENER002
 
-        if (topic_count != 5) {
+        if (topic_count != MQTT_TOPIC_ENER002_MAX_INDEX) {
             log4c_category_error(clientlog, "Invalid topic count(%d) for %s", 
                                  topic_count,
                                  MQTT_TOPIC_ENER002);
@@ -229,15 +243,15 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
         }
 
 #define MAX_OOK_ADDRESS_TOPIC_LENGTH (OOK_MSG_ADDRESS_LENGTH * 2)
-#define MAX_OOK_DEVICE_TOPIC_LENGTH  1
+#define MAX_OOK_SOCKET_TOPIC_LENGTH  1
 
         char address[MAX_OOK_ADDRESS_TOPIC_LENGTH + 1];
-        char device[MAX_OOK_DEVICE_TOPIC_LENGTH + 1];
+        char device[MAX_OOK_SOCKET_TOPIC_LENGTH + 1];
 
-        strncpy(address, topics[3], MAX_OOK_ADDRESS_TOPIC_LENGTH);
+        strncpy(address, topics[MQTT_TOPIC_OOK_ADDRESS_INDEX], MAX_OOK_ADDRESS_TOPIC_LENGTH);
         address[MAX_OOK_ADDRESS_TOPIC_LENGTH] = '\0';
-        strncpy(device, topics[4], MAX_OOK_DEVICE_TOPIC_LENGTH);
-        device[MAX_OOK_DEVICE_TOPIC_LENGTH] = '\0';
+        strncpy(device, topics[MQTT_TOPIC_OOK_SOCKET_INDEX], MAX_OOK_SOCKET_TOPIC_LENGTH);
+        device[MAX_OOK_SOCKET_TOPIC_LENGTH] = '\0';
 
         log4c_category_log(clientlog, LOG4C_PRIORITY_TRACE, "Freeing tokens");
 
@@ -305,10 +319,10 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
 
         HRF_send_OOK_msg(addressBytes, socketNum, onOff);
 
-    } else if (strcmp(MQTT_TOPIC_ETRV, topics[2]) == 0) {
+    } else if (strcmp(MQTT_TOPIC_ETRV, topics[MQTT_TOPIC_DEVICE_INDEX]) == 0) {
         // Message for eTRV Radiator Valve
         
-        if (topic_count < 5) {
+        if (topic_count < MQTT_TOPIC_ETRV_MAX_INDEX) {
             log4c_category_error(clientlog, "Invalid topic count(%d) for %s", 
                                  topic_count,
                                  MQTT_TOPIC_ETRV);
@@ -317,18 +331,18 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
         }
         
 
-        if (strcmp(MQTT_TOPIC_COMMAND, topics[3]) != 0) {
+        if (strcmp(MQTT_TOPIC_COMMAND, topics[MQTT_TOPIC_COMMAND_INDEX]) != 0) {
             log4c_category_error(clientlog, "Invalid command %s for %s", topics[3], topics[2]);
             mosquitto_sub_topic_tokens_free(&topics, topic_count);
             return;
         }
 
 
-        if (strcmp(MQTT_TOPIC_IDENTIFY, topics[4]) == 0) {
+        if (strcmp(MQTT_TOPIC_IDENTIFY, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
             // Send Identify command to eTRV
             //
             char sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH + 1];
-            strncpy(sensorId, topics[5], MQTT_TOPIC_MAX_SENSOR_LENGTH);
+            strncpy(sensorId, topics[MQTT_TOPIC_SENSORID_INDEX], MQTT_TOPIC_MAX_SENSOR_LENGTH);
             sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH] = '\0';
 
             mosquitto_sub_topic_tokens_free(&topics, topic_count);
@@ -342,12 +356,12 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
             }
 
 
-            addCommandToSend(intSensorId, PARAM_IDENTIFY, 0);
+            addCommandToSend(intSensorId, OT_IDENTIFY, 0);
 
-        } else if (strcmp(MQTT_TOPIC_TEMPERATURE, topics[4]) == 0) {
+        } else if (strcmp(MQTT_TOPIC_TEMPERATURE, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
             // Send set temperature command to eTRV
             char sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH + 1];
-            strncpy(sensorId, topics[5], MQTT_TOPIC_MAX_SENSOR_LENGTH);
+            strncpy(sensorId, topics[MQTT_TOPIC_SENSORID_INDEX], MQTT_TOPIC_MAX_SENSOR_LENGTH);
             sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH] = '\0';
 
             mosquitto_sub_topic_tokens_free(&topics, topic_count);
@@ -378,7 +392,7 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
                 return;
             }
 
-            addCommandToSend(intSensorId, PARAM_TEMP_SET, temperature);
+            addCommandToSend(intSensorId, OT_TEMP_SET, temperature);
         } else {
             log4c_category_warn(clientlog, 
                            "Can't handle %s commands for %s yet", topics[4], topics[2]);
@@ -535,7 +549,7 @@ int main(int argc, char **argv){
 
                 HRF_send_FSK_msg(
                                  HRF_make_FSK_msg(join_manu_id, encryptId, join_prod_id, join_sensor_id,
-                                                  2, PARAM_JOIN_RESP, 0), 
+                                                  2, OT_JOIN_RESP, 0), 
                                  encryptId);
                 send_join_response = FALSE;
             } else {
@@ -550,7 +564,7 @@ int main(int argc, char **argv){
 
             if (commandToSend) {
                 switch (commandToSend->command) {
-                    case PARAM_IDENTIFY:
+                    case OT_IDENTIFY:
                         log4c_category_debug(clientlog, "Sending Identify to device %d", 
                                              rcvdSensorId);
                         HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
@@ -558,12 +572,12 @@ int main(int argc, char **argv){
                                          encryptId);
                         break;
 
-                    case PARAM_TEMP_SET:
+                    case OT_TEMP_SET:
                         log4c_category_debug(clientlog, "Sending Set Temperature %d to device %d",
                                              commandToSend->data, rcvdSensorId);
                         HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                                           eTRVProductId, rcvdSensorId,
-                                                          4, PARAM_TEMP_SET, 0x92, 
+                                                          4, OT_TEMP_SET, 0x92, 
                                                           (commandToSend->data & 0xff), 
                                                           (commandToSend->data >> 8 & 0xff)), 
                                          encryptId);
@@ -627,7 +641,7 @@ int main(int argc, char **argv){
                                 
                 printf("send temp report\n");
                 HRF_send_FSK_msg(HRF_make_FSK_msg(manufacturerId, encryptId, productId, sensorId,
-                                              4, PARAM_TEMP_SET, 0x92, (data & 0xff), (data >> 8 & 0xff)), encryptId);
+                                              4, OT_TEMP_SET, 0x92, (data & 0xff), (data >> 8 & 0xff)), encryptId);
             queued_data = FALSE;
             recieve_temp_report = FALSE;
             
@@ -648,7 +662,7 @@ int main(int argc, char **argv){
 			printf("send temp message:\trelay %s\n", switchState ? "ON" : "OFF");
 			bcm2835_gpio_write(LEDG, switchState);
 			HRF_send_FSK_msg(HRF_make_FSK_msg(manufacturerId, encryptId, productId, sensorId,
-											  4, PARAM_TEMP_SET, 0x92, 0x10, 0x20),
+											  4, OT_TEMP_SET, 0x92, 0x10, 0x20),
 							 encryptId);
 		}
 		*/
