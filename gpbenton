@@ -88,6 +88,16 @@ Sitemap file
 	Chart item=Temperature_Chart period=D refresh=30000 visibility=[Temperature_Chart_Period==1]
 	Chart item=Temperature_Chart period=W refresh=30000 visibility=[Temperature_Chart_Period==2]
 	
+### Python Example
+
+Switch
+
+        import paho.mqtt.publish as publish
+
+        # Switch On
+        publish.single("/energenie/ENER002/8ee8ee888ee8ee888ee8/4","On", hostname="192.168.0.3")
+	
+
 ## License
 This code is published under the MIT License.  The last sentence is important.  If running this code causes your device to fail, I'm not responsible.
 
