@@ -47,6 +47,38 @@ To receive commands the structure is
         
 ## Usage
 
+### Python Example
+
+Turn Socket On
+
+        import paho.mqtt.publish as publish
+
+        # Switch On
+        publish.single("/energenie/ENER002/8ee8ee888ee8ee888ee8/4","On", hostname="192.168.0.3")
+        
+Listen for eTRV temperature reports (can also be used to find out the address of your eTRVs)
+
+	import paho.mqtt.client as mqtt
+	import subprocess
+	import time
+
+	broker_address = "192.168.0.3"
+	broker_port = 1883
+
+	def on_connect(client, userdata, flags, rc):
+    		client.subscribe("/energenie/eTRV/Report/Temperature/#")
+
+	def on_message(client, userdata, msg):
+    		print (msg.topic+" "+str(msg.payload)+ "C")
+
+	client = mqtt.Client()
+	client.on_connect = on_connect
+	client.on_message = on_message
+	client.connect(broker_address, broker_port, 60)
+	client.loop_forever()
+
+
+	
 ### OpenHab example
 
 #### Controlling switches
@@ -87,15 +119,6 @@ Sitemap file
 	Chart item=Temperature_Chart period=h refresh=6000 visibility=[Temperature_Chart_Period==0, Temperature_Chart_Period=="Uninitialized"]
 	Chart item=Temperature_Chart period=D refresh=30000 visibility=[Temperature_Chart_Period==1]
 	Chart item=Temperature_Chart period=W refresh=30000 visibility=[Temperature_Chart_Period==2]
-	
-### Python Example
-
-Switch
-
-        import paho.mqtt.publish as publish
-
-        # Switch On
-        publish.single("/energenie/ENER002/8ee8ee888ee8ee888ee8/4","On", hostname="192.168.0.3")
 	
 
 ## License
