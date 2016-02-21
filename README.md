@@ -24,7 +24,6 @@ Install the following packages
 
 	pi@raspberrypi ~/energenie/engMQTTClient $ dpkg --get-selections | grep mosquitto
 	libmosquitto-dev:armhf                          install
-	libmosquitto0                                   deinstall
 	libmosquitto1:armhf                             install
 	mosquitto                                       install
 	mosquitto-clients                               install
