@@ -18,7 +18,17 @@ Working :
 
 ## Building
 
-Download and compile and install the latest versions of mosquitto and log4c.  The versions from the respository are too old to work.  I have mosquitto 1.4.7 and log4c 1.2.4 working.
+Download and compile and install the latest version log4c.  The version from the respository is too old to work.  I have log4c 1.2.4 working.
+
+Install the following packages
+
+	pi@raspberrypi ~/energenie/engMQTTClient $ dpkg --get-selections | grep mosquitto
+	libmosquitto-dev:armhf                          install
+	libmosquitto0                                   deinstall
+	libmosquitto1:armhf                             install
+	mosquitto                                       install
+	mosquitto-clients                               install
+
 
 Compile engMQTTClient using 'make'.
 
@@ -26,7 +36,7 @@ Run the program using
 
         sudo LD\_LIBRARY\_PATH=/usr/local/lib ./engMQTTClient
 
-assuming mosquitto and log4c have been placed in /usr/local/lib as per default.
+assuming log4c has been placed in /usr/local/lib as per default.
 
 ### MQTT Topic structure
 
