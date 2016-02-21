@@ -10,10 +10,10 @@ engMQTTClient uses the mosquitto MQTT client library to do the MQTT handling.  C
 It also uses the log4c logging library.
 
 ## Status
-Early development. 
-I have tested : 
-* communication from one eTRV. 
-* receiving MQTT messages 
+Alpha.  It works for me. Your experience may vary.
+Working : 
+* receiving MQTT commands set temperature and Identify eTRV (MIH0013) and sending to device
+* reporting eTRV temperature values received from device
 * sending ON/OFF commands to ENER002 remote controlled sockets.
 
 ## Building
