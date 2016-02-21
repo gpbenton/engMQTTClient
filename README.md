@@ -16,7 +16,7 @@ I have tested :
 * receiving MQTT messages 
 * sending ON/OFF commands to ENER002 remote controlled sockets.
 
-## Usage
+## Building
 
 Download and compile and install the latest versions of mosquitto and log4c.  The versions from the respository are too old to work.  I have mosquitto 1.4.7 and log4c 1.2.4 working.
 
@@ -44,7 +44,50 @@ To receive commands the structure is
 
         _commandid_ is the command sent or received (so far "Identity" or "Temperature")
         _deviceid_ is the openThing id number for the device in decimal
+        
+## Usage
 
+### OpenHab example
+
+#### Controlling switches
+
+Item file
+
+        Switch Light_FF_Bed_Table 	"Bedside Lamp" 	(FF_Bed, Lights)
+         {mqtt=">[raspberryPI:/energenie/ENER002/8ee8ee888ee8ee888ee8/1:command:ON:On],>[raspberryPI:/energenie/ENER002/8ee8ee888ee8ee888ee8/1:command:OFF:Off]"}
+
+Sitemap file
+        
+        Switch item=Light_FF_Bed_Table label="Bedroom Light" icon="switch"
+
+#### Controlling eTRV
+
+Item file
+
+        Group Temperature_Chart 
+        Number Temperature_329_set    "Lounge Temperature Target [%.1f °C]" <temperature> (Temperature_Chart, FF_Bed)   
+                                      {mqtt=">[raspberryPi:/energenie/eTRV/Command/Temperature/329:command:*:${command}]"}
+        Number Temperature_329        "Lounge Temperature [%.1f °C]"   <temperature> (Temperature, Temperature_Chart, FF_Bed)
+                                      {mqtt="<[raspberryPi:/energenie/eTRV/Report/Temperature/329:state:default"}
+
+        Number Temperature_Chart_Period		"Chart Period"
+
+        Number eTRV_329_received_target   "Lounge Received Target" <temperature> (Trv, FF_Bed, Temperature_Chart)
+                                          {mqtt="<[raspberryPi:/energenie/eTRV/Report/TargetTemperature/329:state:default"}
+        Number eTRV_329               "Lounge TRV Control"    (Trv, FF_Bed)
+                                          {mqtt=">[raspberryPi:/energenie/eTRV/Command/Identify/329:command:1:0]"}
+                                          
+Sitemap file
+
+        Setpoint item=Temperature_329_set icon="temperature" minValue=4 maxValue=30 step=1
+	Text item=Temperature_329
+	Switch item=eTRV_329 mappings=[1="Identify"]
+		
+	Switch item=Temperature_Chart_Period label="Chart Period" mappings=[0="Hour", 1="Day", 2="Week"]
+	Chart item=Temperature_Chart period=h refresh=6000 visibility=[Temperature_Chart_Period==0, Temperature_Chart_Period=="Uninitialized"]
+	Chart item=Temperature_Chart period=D refresh=30000 visibility=[Temperature_Chart_Period==1]
+	Chart item=Temperature_Chart period=W refresh=30000 visibility=[Temperature_Chart_Period==2]
+	
 ## License
 This code is published under the MIT License.  The last sentence is important.  If running this code causes your device to fail, I'm not responsible.
 
@@ -52,7 +95,3 @@ The mosquitto MQTT library is released under the Eclipse Public License.
 
 The log4c logging library is released under the LGPL license.
 
-## To Do
-* Testing sending messages to eTRV
-* Determine MQTT Topic heirarchy
-* Configuration File 
