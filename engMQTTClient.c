@@ -80,7 +80,7 @@ SOFTWARE.
 
 static const char* mqttBrokerHost =  "localhost";  // TODO configuration for other set ups
 static const int   mqttBrokerPort = 1883;
-static const int keepalive = 60;
+static const int keepalive = 300;
 static const bool clean_session = true;
 
 /* OpenThings definitions */
