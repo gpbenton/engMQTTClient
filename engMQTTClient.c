@@ -55,13 +55,21 @@ SOFTWARE.
 #define MQTT_TOPIC_DEVICE_INDEX 2
 #define MQTT_TOPIC_COMMAND_INDEX 3
 
-#define MQTT_TOPIC_TEMPERATURE  "Temperature"
-#define MQTT_TOPIC_IDENTIFY     "Identify"
+#define MQTT_TOPIC_TEMPERATURE  "Temperature"           /* OT_TEMP_SET */
+#define MQTT_TOPIC_IDENTIFY     "Identify"              /* OT_IDENTIFY */
+#define MQTT_TOPIC_EXERCISE_VALVE "Exercise"            /* OT_EXERCISE_VALVE */
+#define MQTT_TOPIC_VOLTAGE "Voltage"                    /* OT_REQUEST_VOLTAGE */
+#define MQTT_TOPIC_DIAGNOSTICS "Diagnostics"            /* OT_REQUEST_DIAGNOTICS */
+#define MQTT_TOPIC_VALVE_STATE "ValveState"             /* OT_SET_VALVE_STATE */
+#define MQTT_TOPIC_POWER_MODE  "PowerMode"              /* OT_SET_LOW_POWER_MODE */
+#define MQTT_TOPIC_REPORTING_INTERVAL "ReportingInterval" /* OT_SET_REPORTING_INTERVAL */
+
 #define MQTT_TOPIC_TARGET_TEMPERATURE "TargetTemperature"
 
 #define MQTT_TOPIC_RCVD_TEMP_COMMAND MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_TEMPERATURE
 #define MQTT_TOPIC_SENT_TEMP_REPORT  MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TEMPERATURE
 #define MQTT_TOPIC_SENT_TARGET_TEMP     MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TARGET_TEMPERATURE
+#define MQTT_TOPIC_RCVD_VALVE_STATE  MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_VALVE_STATE
 
 #define MQTT_TOPIC_TYPE_INDEX 4
 #define MQTT_TOPIC_SENSORID_INDEX 5
@@ -393,6 +401,43 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
             }
 
             addCommandToSend(intSensorId, OT_TEMP_SET, temperature);
+        } else if (strcmp(MQTT_TOPIC_VALVE_STATE, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
+            // Send set valve state command to eTRV
+            char sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH + 1];
+            strncpy(sensorId, topics[MQTT_TOPIC_SENSORID_INDEX], MQTT_TOPIC_MAX_SENSOR_LENGTH);
+            sensorId[MQTT_TOPIC_MAX_SENSOR_LENGTH] = '\0';
+
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+            int intSensorId = atoi(sensorId);
+
+            if (intSensorId == 0) {
+                // Assume 0 isn't valid sensor id
+                log4c_category_error(clientlog, "SensorId must be an integer: %s", sensorId);
+                return;
+            }
+
+            if (message->payloadlen != 1) {
+                log4c_category_error(clientlog, "Payload for set valve state must be 1"
+                                                "digit in length");
+                return;
+            }
+
+            char tempString[message->payloadlen+1];
+            strncpy(tempString, message->payload, message->payloadlen);
+            tempString[message->payloadlen] = '\0';
+
+            uint32_t state = strtoul(tempString, NULL, 0);
+
+            if ( state > 2) {
+                log4c_category_error(clientlog, "state must be between 0 and 2, got %d",
+                                     state);
+                return;
+            }
+
+            addCommandToSend(intSensorId, OT_SET_VALVE_STATE, state);
+
+
         } else {
             log4c_category_warn(clientlog, 
                            "Can't handle %s commands for %s yet", topics[4], topics[2]);
@@ -599,6 +644,17 @@ int main(int argc, char **argv){
                                               strlen(temperature), temperature,
                                               0, false);
                         }
+                        break;
+
+                    case OT_SET_VALVE_STATE:
+                        log4c_category_debug(clientlog, "Sending Set Valve State %d to device %d",
+                                             commandToSend->data, rcvdSensorId);
+                        HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                          eTRVProductId, rcvdSensorId,
+                                                          3, OT_SET_VALVE_STATE, 0x01, 
+                                                          (commandToSend->data & 0xff)
+                                                          ), 
+                                         encryptId);
                         break;
 
                     default:
