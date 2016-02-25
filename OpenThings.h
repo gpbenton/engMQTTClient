@@ -65,6 +65,8 @@ SOFTWARE.
                                          Unsigned Integer Length 0
                                          */
 
+#define OT_REPORT_DIAGNOSTICS 0x26
+
 #define OT_SET_VALVE_STATE 0xA5     /*
                                        Send a message to the driver board
                                        0 = Set Valve Fully Open

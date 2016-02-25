@@ -25,13 +25,11 @@
 static char logBuffer[MSG_LOG_BUFFER_SIZE];
 static int logBufferUsedCount = 0;
 
-uint8_t send_join_response = FALSE;
-uint8_t recieve_temp_report;
-char received_temperature[MAX_DATA_LENGTH];
-
-uint8_t join_manu_id;
-uint8_t join_prod_id;
-uint32_t join_sensor_id;
+//uint8_t send_join_response = FALSE;
+static uint8_t recieve_temp_report = FALSE;
+static char received_temperature[MAX_DATA_LENGTH];
+static uint8_t received_diagnostics = FALSE;
+static uint8_t diagnosticData[2];
 
 static pthread_mutex_t mutex;
 
@@ -371,7 +369,8 @@ void setupCrc(uint8_t *buf){
 	buf[size] = val & 0x00FF;
 }	
 	
-void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, uint32_t *sensorId )
+void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, 
+                         struct ReceivedMsgData *msgData )
 {
 	static uint16_t msg_cnt = 0;
 
@@ -409,26 +408,43 @@ void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufa
 			if (recordBytesRead == msg.recordBytesToRead)
 			{
 				recordBytesRead = 0;
-				msgNextState(encryptionId, productId, manufacturerId, sensorId, &msg);
+				msgNextState(encryptionId, productId, manufacturerId, &msg);
 				msg.value = 0;
 			}
 		}
-		msgNextState(encryptionId, productId, manufacturerId, sensorId, &msg);
+
+        if (msg.crcPassed) {
+            msgData->msgAvailable = 1;
+            msgData->manufId = msg.manufId;
+            msgData->prodId = msg.prodId;
+            msgData->sensorId = msg.sensorId;
+            msgData->joinCommand = msg.gotJoin;
+            if (recieve_temp_report) {
+                log4c_category_info(hrflog, "Msg=%d, SensorId=%d, Temperature=%s", 
+                                    msg_cnt, msg.sensorId, received_temperature);
+                msgData->receivedTempReport = 1;
+                strncpy(msgData->receivedTemperature, received_temperature, MAX_DATA_LENGTH);
+                msgData->receivedTemperature[MAX_DATA_LENGTH] = '\0';
+            }
+            if (received_diagnostics) {
+                msgData->receivedDiagnostics = 1;
+                msgData->diagnosticData[0] = diagnosticData[0];
+                msgData->diagnosticData[1] = diagnosticData[1];
+            }
+        }
+
+		msgNextState(encryptionId, productId, manufacturerId, &msg);
 		                
 	}
 
     pthread_mutex_unlock(&mutex);
     ledControl(redLED, ledOff);
 
-
-    if (recieve_temp_report) {
-        log4c_category_info(hrflog, "Msg=%d, SensorId=%d, Temperature=%s", msg_cnt, *sensorId, received_temperature);
-    }
 }
 
 
 
-void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, uint32_t *sensorId, msg_t *msgPtr){		// Switch and initialize next state
+void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, msg_t *msgPtr){		// Switch and initialize next state
 	const char *temp;
 	switch (msgPtr->state)
 	{
@@ -481,9 +497,9 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 		
             msgPtr->state = S_DATA_PARAMID;
             msgPtr->recordBytesToRead = SIZE_DATA_PARAMID;
-            *sensorId = (msgPtr->value & 0x00ffffff);
+            msgPtr->sensorId = (msgPtr->value & 0x00ffffff);
 
-            log4c_category_debug(hrflog, " SensorID=%#08x", *sensorId);
+            log4c_category_debug(hrflog, " SensorID=%#08x", msgPtr->sensorId);
 			
 			break;
 	/******************* start reading RECORDS  ********************/
@@ -501,19 +517,28 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 
 				msgPtr->state = S_DATA_TYPEDESC;
 				msgPtr->recordBytesToRead = SIZE_DATA_TYPEDESC;
-				
-				if (msgPtr->paramId == OT_JOIN_CMD)
-				{
-					msgPtr->gotJoin = 1;
+
+                switch (msgPtr->paramId) {
+                    case OT_JOIN_CMD:
+                        msgPtr->gotJoin = 1;
+                        break;
 					
-				}
-				
-				
-				if (msgPtr->paramId == OT_TEMP_REPORT)
-				{
-		
-				   recieve_temp_report = TRUE;			
-				}
+                    case OT_TEMP_REPORT:
+                        recieve_temp_report = TRUE;			
+                        break;
+
+                    case OT_REPORT_DIAGNOSTICS:
+                        received_diagnostics = TRUE;
+                        break;
+
+                    default:
+                        log4c_category_error(hrflog, 
+                                             "Don't understand OpenThings message 0x%x",
+                                             msgPtr->paramId);
+                        break;
+				} 
+
+
 			}
 			if (strcmp(temp, "Unknown") == 0)		// Unknown parameter, finish fetching message
 				msgPtr->state = S_FINISH;
@@ -533,11 +558,25 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 			msgPtr->type = msgPtr->value;
 			break;
 		case S_DATA_VAL:						// Read record data
-			temp = getValString(msgPtr->value, msgPtr->type >> 4, msgPtr->recordBytesToRead);
-			log4c_category_debug(hrflog, " value=%s", temp);
-            strncpy(received_temperature, temp, MAX_DATA_LENGTH);
-            received_temperature[MAX_DATA_LENGTH] = '\0';
-			msgPtr->state = S_DATA_PARAMID;
+            switch (msgPtr->paramId) {
+                case OT_TEMP_REPORT:
+                    temp = getValString(msgPtr->value, msgPtr->type >> 4, msgPtr->recordBytesToRead);
+                    log4c_category_debug(hrflog, " value=%s", temp);
+                    strncpy(received_temperature, temp, MAX_DATA_LENGTH);
+                    received_temperature[MAX_DATA_LENGTH] = '\0';
+                    break;
+
+                case OT_REPORT_DIAGNOSTICS:
+                    diagnosticData[0] = msgPtr->value & 0xff;
+                    diagnosticData[1] = (msgPtr->value >> 8) & 0xff;
+                    log4c_category_debug(hrflog, " diagnostics data = [0] 0x%x  [1] 0x%x", 
+                                         diagnosticData[0], diagnosticData[1]);
+                    break;
+
+                default:
+                    break;
+            }
+            msgPtr->state = S_DATA_PARAMID;
 			msgPtr->recordBytesToRead = SIZE_DATA_PARAMID;
 			if (strcmp(temp, "Reserved") == 0)
 				msgPtr->state = S_FINISH;
@@ -549,13 +588,7 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
 			                                  msgPtr->bufCnt - (MSG_ENCR_START+2)))
 			{
 				log4c_category_debug(hrflog, " CRC OK");
-				if (msgPtr->gotJoin)
-				{
-					join_manu_id = msgPtr->manufId;
-					join_prod_id = msgPtr->prodId;
-					join_sensor_id = msgPtr->sensorId;
-					send_join_response = TRUE;
-				}
+                msgPtr->crcPassed = 1;
 			}
 			else
 			{
@@ -624,6 +657,28 @@ char* getIdName(uint8_t val){
 			return "Test";
 		case OT_SW_STATE:
 			return "Switch_state";
+        case OT_TEMP_SET:
+            return "Set Temperature";
+        case OT_TEMP_REPORT:
+            return "Report Temperature";
+        case OT_EXERCISE_VALVE:
+            return "Excercise Valve";
+        case OT_REQUEST_VOLTAGE:
+            return "Request Voltage";
+        case OT_REPORT_VOLTAGE:
+            return "Report Voltage";
+        case OT_REQUEST_DIAGNOTICS:
+            return "Request Diagnostics";
+        case OT_REPORT_DIAGNOSTICS:
+            return "Report Diagnostics";
+        case OT_SET_VALVE_STATE:
+            return "Set Valve State";
+        case OT_SET_LOW_POWER_MODE:
+            return "Set Low Power Mode";
+        case OT_IDENTIFY:
+            return "Identify";
+        case OT_SET_REPORTING_INTERVAL:
+            return "Set Reporting Interval";
 		case OT_CRC:
 			return "CRC";
 		default:

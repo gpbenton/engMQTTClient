@@ -155,14 +155,20 @@ typedef struct msg_t {
 	uint32_t value;
 	uint8_t bufCnt;
 	uint8_t buf[MESSAGE_BUF_SIZE];
+        uint8_t crcPassed;
 } msg_t;
 
-extern uint8_t send_join_response;
-extern uint8_t join_manu_id;
-extern uint8_t join_prod_id;
-extern uint32_t join_sensor_id;
-extern uint8_t recieve_temp_report;
-extern uint8_t queued_data;
+struct ReceivedMsgData {
+    uint8_t msgAvailable;
+    uint8_t joinCommand;
+    uint8_t manufId;
+    uint8_t prodId;
+    uint32_t sensorId;
+    uint8_t receivedTempReport;
+    char    receivedTemperature[MAX_DATA_LENGTH];
+    uint8_t receivedDiagnostics;
+    uint8_t diagnosticData[2];
+};
 
 
 
@@ -182,8 +188,8 @@ void 	HRF_send_FSK_msg(uint8_t*, uint8_t);
 //void 	decryptMsg(uint8_t*, uint8_t);
 void 	encryptMsg(uint8_t, uint8_t*, uint8_t);
 void 	setupCrc(uint8_t*);
-void 	HRF_receive_FSK_msg(uint8_t, uint8_t, uint8_t, uint32_t *);
-void 	msgNextState(uint8_t, uint8_t, uint8_t, uint32_t *, msg_t*);
+void 	HRF_receive_FSK_msg(uint8_t, uint8_t, uint8_t, struct ReceivedMsgData *);
+void 	msgNextState(uint8_t, uint8_t, uint8_t, msg_t*);
 char* 	getIdName(uint8_t);
 char* 	getValString(uint64_t, uint8_t, uint8_t);
 

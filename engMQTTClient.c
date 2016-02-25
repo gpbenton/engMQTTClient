@@ -438,6 +438,22 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
             addCommandToSend(intSensorId, OT_SET_VALVE_STATE, state);
 
 
+        } else if (strcmp(MQTT_TOPIC_DIAGNOSTICS, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
+
+            int intSensorId = atoi(topics[MQTT_TOPIC_SENSORID_INDEX]);
+
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+
+            if (intSensorId == 0) {
+                // Assume 0 isn't valid sensor id
+                log4c_category_error(clientlog, "SensorId must be an integer: %s", 
+                                     topics[MQTT_TOPIC_SENSORID_INDEX]);
+                return;
+            }
+
+            addCommandToSend(intSensorId, OT_REQUEST_DIAGNOTICS, 0);
+            
         } else {
             log4c_category_warn(clientlog, 
                            "Can't handle %s commands for %s yet", topics[4], topics[2]);
@@ -512,9 +528,8 @@ void my_log_callback(struct mosquitto *mosq, void *userdata, int level,
 // receive in variable length packet mode, display and resend. Data with swapped first 2 bytes
 int main(int argc, char **argv){
     		
-    extern	uint8_t recieve_temp_report;
-    extern char received_temperature[MAX_DATA_LENGTH];
     struct mosquitto *mosq = NULL;
+    struct ReceivedMsgData msgData;
 	
     if (log4c_init()) {
         fprintf(stderr, "log4c_init() failed");
@@ -580,148 +595,132 @@ int main(int argc, char **argv){
     ledControl(redLED, ledOff);
     ledControl(greenLED, ledOn);
 
-	while (1){
-        uint32_t rcvdSensorId;
-		
-		HRF_receive_FSK_msg(encryptId, eTRVProductId, engManufacturerId, &rcvdSensorId );
+    msgData.msgAvailable = 0;
+    while (1){
 
-        if (send_join_response) {
-            if ( join_manu_id == engManufacturerId &&
-                 join_prod_id == eTRVProductId) {
+        HRF_receive_FSK_msg(encryptId, eTRVProductId, engManufacturerId, &msgData );
 
-                /* We got a join request for an eTRV */
-                log4c_category_debug(clientlog, "send Join response for sensorId %d", rcvdSensorId);
+        if (msgData.msgAvailable) {
+            if (msgData.joinCommand) {
+                if ( msgData.manufId == engManufacturerId &&
+                     msgData.prodId == eTRVProductId) {
 
-                HRF_send_FSK_msg(
-                                 HRF_make_FSK_msg(join_manu_id, encryptId, join_prod_id, join_sensor_id,
-                                                  2, OT_JOIN_RESP, 0), 
-                                 encryptId);
-                send_join_response = FALSE;
-            } else {
-                log4c_category_info(clientlog, 
-                        "Received Join message for ManufacturerId:%d ProductId:%d SensorId:%d", 
-                        join_manu_id, join_prod_id, join_sensor_id);
-            }
-        }
+                    /* We got a join request for an eTRV */
+                    log4c_category_debug(clientlog, "send Join response for sensorId %d", msgData.sensorId);
 
-        if (recieve_temp_report) {
-            struct entry *commandToSend = findCommandToSend(rcvdSensorId);
-
-            if (commandToSend) {
-                switch (commandToSend->command) {
-                    case OT_IDENTIFY:
-                        log4c_category_debug(clientlog, "Sending Identify to device %d", 
-                                             rcvdSensorId);
-                        HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
-                                                          eTRVProductId, rcvdSensorId, 2, 0xBF , 0),
-                                         encryptId);
-                        break;
-
-                    case OT_TEMP_SET:
-                        log4c_category_debug(clientlog, "Sending Set Temperature %d to device %d",
-                                             commandToSend->data, rcvdSensorId);
-                        HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
-                                                          eTRVProductId, rcvdSensorId,
-                                                          4, OT_TEMP_SET, 0x92, 
-                                                          (commandToSend->data & 0xff), 
-                                                          (commandToSend->data >> 8 & 0xff)), 
-                                         encryptId);
-
-                        {
-                            // Report temperature set to MQTT broker
-                            char mqttTempSetTopic[strlen(MQTT_TOPIC_SENT_TARGET_TEMP) 
-                                + MQTT_TOPIC_MAX_SENSOR_LENGTH 
-                                + 5 + 1];
-
-                            snprintf(mqttTempSetTopic, sizeof(mqttTempSetTopic), "%s/%d", 
-                                     MQTT_TOPIC_SENT_TARGET_TEMP, rcvdSensorId);
-
-                            // Should only be 1 or 2 digits for temperature
-                            char temperature[5];
-                            snprintf(temperature, 4, "%d", commandToSend->data);
-
-                            mosquitto_publish(mosq, NULL, mqttTempSetTopic, 
-                                              strlen(temperature), temperature,
-                                              0, false);
-                        }
-                        break;
-
-                    case OT_SET_VALVE_STATE:
-                        log4c_category_debug(clientlog, "Sending Set Valve State %d to device %d",
-                                             commandToSend->data, rcvdSensorId);
-                        HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
-                                                          eTRVProductId, rcvdSensorId,
-                                                          3, OT_SET_VALVE_STATE, 0x01, 
-                                                          (commandToSend->data & 0xff)
-                                                          ), 
-                                         encryptId);
-                        break;
-
-                    default:
-                        log4c_category_warn(clientlog, "Don't understand command to send %x", 
-                                            commandToSend->command);
-                        HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
-                                                          eTRVProductId, rcvdSensorId, 0), 
-                                         encryptId);
-                         break;
+                    HRF_send_FSK_msg(
+                                     HRF_make_FSK_msg(msgData.manufId, encryptId, 
+                                                      msgData.prodId, msgData.sensorId,
+                                                      2, OT_JOIN_RESP, 0), 
+                                     encryptId);
+                } else {
+                    log4c_category_notice(clientlog, 
+                                          "Received Join message for ManufacturerId:%d ProductId:%d SensorId:%d", 
+                                          msgData.manufId, msgData.prodId, msgData.sensorId);
                 }
-                free(commandToSend);
-            } else {
-
-                log4c_category_debug(clientlog, "send NIL command for sensorId %d", rcvdSensorId);
-                HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
-                                                  eTRVProductId, rcvdSensorId, 0), 
-                                 encryptId);
             }
 
+            if (msgData.receivedTempReport) {
+                struct entry *commandToSend = findCommandToSend(msgData.sensorId);
 
-            log4c_category_info(clientlog, "SensorId=%d Temperature=%s", 
-                                rcvdSensorId, received_temperature);
+                if (commandToSend) {
+                    switch (commandToSend->command) {
+                        case OT_IDENTIFY:
+                            log4c_category_debug(clientlog, "Sending Identify to device %d", 
+                                                 msgData.sensorId);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId, 
+                                                              2, 0xBF , 0),
+                                             encryptId);
+                            break;
 
-            char mqttTopic[strlen(MQTT_TOPIC_SENT_TEMP_REPORT) 
-                            + MQTT_TOPIC_MAX_SENSOR_LENGTH 
-                            + 5 + 1];
+                        case OT_TEMP_SET:
+                            log4c_category_debug(clientlog, "Sending Set Temperature %d to device %d",
+                                                 commandToSend->data, msgData.sensorId);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId,
+                                                              4, OT_TEMP_SET, 0x92, 
+                                                              (commandToSend->data & 0xff), 
+                                                              (commandToSend->data >> 8 & 0xff)), 
+                                             encryptId);
 
-            snprintf(mqttTopic, sizeof(mqttTopic), "%s/%d", 
-                     MQTT_TOPIC_SENT_TEMP_REPORT, rcvdSensorId);
-            mosquitto_publish(mosq, NULL, mqttTopic, 
-                              strlen(received_temperature), received_temperature, 0, false);
-            recieve_temp_report = FALSE;  
+                            {
+                                // Report temperature set to MQTT broker
+                                char mqttTempSetTopic[strlen(MQTT_TOPIC_SENT_TARGET_TEMP) 
+                                    + MQTT_TOPIC_MAX_SENSOR_LENGTH 
+                                    + 5 + 1];
+
+                                snprintf(mqttTempSetTopic, sizeof(mqttTempSetTopic), "%s/%d", 
+                                         MQTT_TOPIC_SENT_TARGET_TEMP, msgData.sensorId);
+
+                                // Should only be 1 or 2 digits for temperature
+                                char temperature[5];
+                                snprintf(temperature, 4, "%d", commandToSend->data);
+
+                                mosquitto_publish(mosq, NULL, mqttTempSetTopic, 
+                                                  strlen(temperature), temperature,
+                                                  0, false);
+                            }
+                            break;
+
+                        case OT_SET_VALVE_STATE:
+                            log4c_category_notice(clientlog, "Set Valve State %d to eTRV sensorId %d",
+                                                  commandToSend->data, msgData.sensorId);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId,
+                                                              3, OT_SET_VALVE_STATE, 0x01, 
+                                                              (commandToSend->data & 0xff)
+                                                             ), 
+                                             encryptId);
+                            break;
+
+                        case OT_REQUEST_DIAGNOTICS:
+                            log4c_category_notice(clientlog, "Request Diagnostics from device %d",
+                                                  msgData.sensorId);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId,
+                                                              2, OT_REQUEST_DIAGNOTICS, 0x00 
+                                                             ), 
+                                             encryptId);
+                            break;
+
+
+                        default:
+                            log4c_category_warn(clientlog, "Don't understand command to send %x", 
+                                                commandToSend->command);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId, 0), 
+                                             encryptId);
+                            break;
+                    }
+                    free(commandToSend);
+                } else {
+
+                    log4c_category_debug(clientlog, "send NIL command for sensorId %d", msgData.sensorId);
+                    HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                      eTRVProductId, msgData.sensorId, 0), 
+                                     encryptId);
+                }
+
+
+                log4c_category_info(clientlog, "SensorId=%d Temperature=%s", 
+                                    msgData.sensorId, msgData.receivedTemperature);
+
+                char mqttTopic[strlen(MQTT_TOPIC_SENT_TEMP_REPORT) 
+                    + MQTT_TOPIC_MAX_SENSOR_LENGTH 
+                    + 5 + 1];
+
+                snprintf(mqttTopic, sizeof(mqttTopic), "%s/%d", 
+                         MQTT_TOPIC_SENT_TEMP_REPORT, msgData.sensorId);
+                mosquitto_publish(mosq, NULL, mqttTopic, 
+                                  strlen(msgData.receivedTemperature), msgData.receivedTemperature, 
+                                  0, false);
+            }
+
+            // clear all the flags from the message data
+            memset(&msgData, 0, sizeof(msgData));
         }
 			
-/*         if (recieve_temp_report)
-        {
-      
-            if (queued_data)
-            {
-                                
-                printf("send temp report\n");
-                HRF_send_FSK_msg(HRF_make_FSK_msg(manufacturerId, encryptId, productId, sensorId,
-                                              4, OT_TEMP_SET, 0x92, (data & 0xff), (data >> 8 & 0xff)), encryptId);
-            queued_data = FALSE;
-            recieve_temp_report = FALSE;
-            
-          } else {
-            printf("send IDENTIFY command\n");
-            HRF_send_FSK_msg(HRF_make_FSK_msg(manufacturerId, encryptId, 
-                                      productId, sensorId, 2, 0xBF , 0), encryptId);
-            recieve_temp_report = FALSE;  
-      }
-      }                                                                                                                   */
-		
-		
-	/*	if (!quiet && difftime(currentTime, monitorControlTime) > 1)
-		{
-			monitorControlTime = time(NULL);
-			static bool switchState = false;
-			switchState = !switchState;
-			printf("send temp message:\trelay %s\n", switchState ? "ON" : "OFF");
-			bcm2835_gpio_write(LEDG, switchState);
-			HRF_send_FSK_msg(HRF_make_FSK_msg(manufacturerId, encryptId, productId, sensorId,
-											  4, OT_TEMP_SET, 0x92, 0x10, 0x20),
-							 encryptId);
-		}
-		*/
         usleep(10000);
 	}
 	bcm2835_spi_end();
