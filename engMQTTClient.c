@@ -382,9 +382,9 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
                 return;
             }
 
-            if (message->payloadlen > 2) {
-                log4c_category_error(clientlog, "Payload for set temperature must be 1 or 2 "
-                                                "digits in length");
+            if (message->payloadlen > 6) {
+                log4c_category_error(clientlog, "Payload for set temperature must be less than "
+                                                "7 bytes in length");
                 return;
             }
 
