@@ -11,13 +11,15 @@ It also uses the log4c logging library.
 
 ## Status
 Alpha.  It works for me. Your experience may vary.
+
 Working : 
 * sending ON/OFF commands to ENER002 remote controlled sockets.
 * MIH0013 (eTRV) commands 
-Commands are sent using /energenie/eTRV/_Command_/sensorId
+Commands are sent using topics /energenie/eTRV/_Command_/sensorId
 where _Command_ can be
 
 | Command | Payload | Comment |
+|--------|---------|---------|
 | Temperature | 4-30 (Ascii) | Set Target Temperature
 | Identify | None     | Makes the MIH0013 flash |
 | Exercise | None     | Causes Valve to go up and down.  Creates Diagnostic when finished.
@@ -32,6 +34,7 @@ Reports are received on Topic /energenie/eTRV/_Report_/sensorId
 where _Report_ can be
 
 | Report | Payload | Comment |
+|--------|---------|---------|
 | Temperature | Ascii string | Measured Temperature in degrees Centigrade
 | TargetTemperature | Ascii String | Target Temperature set
 | Diagnostics | 2 bytes | byte 0 = low byte, 1 = high byte
@@ -152,7 +155,7 @@ Sitemap file
 	
 
 ## License
-This code is published under the MIT License.  The last sentence is important.  If running this code causes your device to fail, I'm not responsible.
+This code is published under the MIT License.  The last paragraph is important.  If running this code causes your device to fail, I'm not responsible.
 
 The mosquitto MQTT library is released under the Eclipse Public License.
 
