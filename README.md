@@ -83,14 +83,15 @@ To receive commands the structure is
 ### Python Example
 
 Turn Socket On
-
+```Python
         import paho.mqtt.publish as publish
 
         # Switch On
         publish.single("/energenie/ENER002/8ee8ee888ee8ee888ee8/4","On", hostname="192.168.0.3")
-        
-Listen for eTRV temperature reports (can also be used to find out the address of your eTRVs)
+```
 
+Listen for eTRV temperature reports (can also be used to find out the address of your eTRVs)
+```Python
 	import paho.mqtt.client as mqtt
 	import subprocess
 	import time
@@ -110,7 +111,7 @@ Listen for eTRV temperature reports (can also be used to find out the address of
 	client.connect(broker_address, broker_port, 60)
 	client.loop_forever()
 
-
+```
 	
 ### OpenHab example
 
