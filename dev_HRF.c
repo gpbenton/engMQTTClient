@@ -25,12 +25,6 @@
 static char logBuffer[MSG_LOG_BUFFER_SIZE];
 static int logBufferUsedCount = 0;
 
-//uint8_t send_join_response = FALSE;
-static uint8_t recieve_temp_report = FALSE;
-static char received_temperature[MAX_DATA_LENGTH];
-static uint8_t received_diagnostics = FALSE;
-static uint8_t diagnosticData[2];
-
 static pthread_mutex_t mutex;
 
 extern log4c_category_t* hrflog;
@@ -408,7 +402,7 @@ void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufa
 			if (recordBytesRead == msg.recordBytesToRead)
 			{
 				recordBytesRead = 0;
-				msgNextState(encryptionId, productId, manufacturerId, &msg);
+				msgNextState(encryptionId, productId, manufacturerId, &msg, msgData);
 				msg.value = 0;
 			}
 		}
@@ -419,21 +413,13 @@ void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufa
             msgData->prodId = msg.prodId;
             msgData->sensorId = msg.sensorId;
             msgData->joinCommand = msg.gotJoin;
-            if (recieve_temp_report) {
+            if (msgData->receivedTempReport) {
                 log4c_category_info(hrflog, "Msg=%d, SensorId=%d, Temperature=%s", 
-                                    msg_cnt, msg.sensorId, received_temperature);
-                msgData->receivedTempReport = 1;
-                strncpy(msgData->receivedTemperature, received_temperature, MAX_DATA_LENGTH);
-                msgData->receivedTemperature[MAX_DATA_LENGTH] = '\0';
-            }
-            if (received_diagnostics) {
-                msgData->receivedDiagnostics = 1;
-                msgData->diagnosticData[0] = diagnosticData[0];
-                msgData->diagnosticData[1] = diagnosticData[1];
+                                    msg_cnt, msg.sensorId, msgData->receivedTemperature);
             }
         }
 
-		msgNextState(encryptionId, productId, manufacturerId, &msg);
+		msgNextState(encryptionId, productId, manufacturerId, &msg, msgData);
 		                
 	}
 
@@ -444,7 +430,8 @@ void HRF_receive_FSK_msg(uint8_t encryptionId, uint8_t productId, uint8_t manufa
 
 
 
-void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, msg_t *msgPtr){		// Switch and initialize next state
+void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerId, msg_t *msgPtr,
+                  struct ReceivedMsgData *msgData){		// Switch and initialize next state
 	const char *temp;
 	switch (msgPtr->state)
 	{
@@ -524,11 +511,15 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
                         break;
 					
                     case OT_TEMP_REPORT:
-                        recieve_temp_report = TRUE;			
+                        msgData->receivedTempReport = 1;
                         break;
 
                     case OT_REPORT_DIAGNOSTICS:
-                        received_diagnostics = TRUE;
+                        msgData->receivedDiagnostics = 1;
+                        break;
+
+                    case OT_VOLTAGE:
+                        msgData->receivedVoltage = 1;
                         break;
 
                     default:
@@ -562,16 +553,24 @@ void msgNextState(uint8_t encryptionId, uint8_t productId, uint8_t manufacturerI
                 case OT_TEMP_REPORT:
                     temp = getValString(msgPtr->value, msgPtr->type >> 4, msgPtr->recordBytesToRead);
                     log4c_category_debug(hrflog, " value=%s", temp);
-                    strncpy(received_temperature, temp, MAX_DATA_LENGTH);
-                    received_temperature[MAX_DATA_LENGTH] = '\0';
+                    strncpy(msgData->receivedTemperature, temp, MAX_DATA_LENGTH);
+                    msgData->receivedTemperature[MAX_DATA_LENGTH] = '\0';
                     break;
 
                 case OT_REPORT_DIAGNOSTICS:
-                    diagnosticData[0] = msgPtr->value & 0xff;
-                    diagnosticData[1] = (msgPtr->value >> 8) & 0xff;
+                    msgData->diagnosticData[0] = msgPtr->value & 0xff;
+                    msgData->diagnosticData[1] = (msgPtr->value >> 8) & 0xff;
                     log4c_category_debug(hrflog, " diagnostics data = [0] 0x%x  [1] 0x%x", 
-                                         diagnosticData[0], diagnosticData[1]);
+                                         msgData->diagnosticData[0], msgData->diagnosticData[1]);
                     break;
+
+                case OT_VOLTAGE:
+                    temp = getValString(msgPtr->value, msgPtr->type >> 4, msgPtr->recordBytesToRead);
+                    log4c_category_debug(hrflog, " value=%s", temp);
+                    strncpy(msgData->voltageData, temp, MAX_DATA_LENGTH);
+                    msgData->voltageData[MAX_DATA_LENGTH] = '\0';
+                    break;
+
 
                 default:
                     break;

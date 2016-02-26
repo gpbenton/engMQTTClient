@@ -70,6 +70,8 @@ SOFTWARE.
 #define MQTT_TOPIC_SENT_TEMP_REPORT  MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TEMPERATURE
 #define MQTT_TOPIC_SENT_TARGET_TEMP     MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_TARGET_TEMPERATURE
 #define MQTT_TOPIC_RCVD_VALVE_STATE  MQTT_TOPIC_ETRV_COMMAND "/" MQTT_TOPIC_VALVE_STATE
+#define MQTT_TOPIC_SENT_VOLTAGE_REPORT MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_VOLTAGE
+#define MQTT_TOPIC_SENT_DIAGNOSTICS_REPORT MQTT_TOPIC_ETRV_REPORT "/" MQTT_TOPIC_DIAGNOSTICS
 
 #define MQTT_TOPIC_TYPE_INDEX 4
 #define MQTT_TOPIC_SENSORID_INDEX 5
@@ -438,7 +440,88 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
             addCommandToSend(intSensorId, OT_SET_VALVE_STATE, state);
 
 
+        } else if (strcmp(MQTT_TOPIC_POWER_MODE, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
+            // Send set valve state command to eTRV
+            int sensorId = atoi(topics[MQTT_TOPIC_SENSORID_INDEX]);
+
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+            if (sensorId == 0) {
+                // Assume 0 isn't valid sensor id
+                log4c_category_error(clientlog, "SensorId must be an integer: %d", sensorId);
+                return;
+            }
+
+            if (message->payloadlen != 1) {
+                log4c_category_error(clientlog, "Payload for set valve state must be 1"
+                                                "digit in length");
+                return;
+            }
+
+            char tempString[message->payloadlen+1];
+            strncpy(tempString, message->payload, message->payloadlen);
+            tempString[message->payloadlen] = '\0';
+
+            uint32_t powerMode = strtoul(tempString, NULL, 0);
+
+            if ( powerMode > 1) {
+                log4c_category_error(clientlog, "Power Mode must be between 0 or 1, got %d",
+                                     powerMode);
+                return;
+            }
+
+            addCommandToSend(sensorId, OT_SET_LOW_POWER_MODE, powerMode);
+
+        } else if (strcmp(MQTT_TOPIC_REPORTING_INTERVAL, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
+            // Send set valve state command to eTRV
+            int sensorId = atoi(topics[MQTT_TOPIC_SENSORID_INDEX]);
+
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+            if (sensorId == 0) {
+                // Assume 0 isn't valid sensor id
+                log4c_category_error(clientlog, "SensorId must be an integer: %d", sensorId);
+                return;
+            }
+
+            if (message->payloadlen > 5 || message->payloadlen < 1) {
+                log4c_category_error(clientlog, "Payload for set reporting interval must be 1 and 5"
+                                                "digits in length");
+                return;
+            }
+
+            char tempString[message->payloadlen+1];
+            strncpy(tempString, message->payload, message->payloadlen);
+            tempString[message->payloadlen] = '\0';
+
+            uint32_t reportingInterval = strtoul(tempString, NULL, 0);
+
+            if ( reportingInterval > 3600 || reportingInterval < 300) {
+                log4c_category_error(clientlog, "Power Mode must be between 300 and 3600, got %d",
+                                     reportingInterval);
+                return;
+            }
+
+            addCommandToSend(sensorId, OT_SET_REPORTING_INTERVAL, reportingInterval);
+
+
         } else if (strcmp(MQTT_TOPIC_DIAGNOSTICS, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
+
+            int sensorId = atoi(topics[MQTT_TOPIC_SENSORID_INDEX]);
+
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+
+            if (sensorId == 0) {
+                // Assume 0 isn't valid sensor id
+                log4c_category_error(clientlog, "SensorId must be an integer: %s", 
+                                     topics[MQTT_TOPIC_SENSORID_INDEX]);
+                return;
+            }
+
+            addCommandToSend(sensorId, OT_REQUEST_DIAGNOTICS, 0);
+            
+        } else if (strcmp(MQTT_TOPIC_EXERCISE_VALVE, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
 
             int intSensorId = atoi(topics[MQTT_TOPIC_SENSORID_INDEX]);
 
@@ -452,7 +535,23 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
                 return;
             }
 
-            addCommandToSend(intSensorId, OT_REQUEST_DIAGNOTICS, 0);
+            addCommandToSend(intSensorId, OT_EXERCISE_VALVE, 0);
+            
+        } else if (strcmp(MQTT_TOPIC_VOLTAGE, topics[MQTT_TOPIC_TYPE_INDEX]) == 0) {
+
+            int intSensorId = atoi(topics[MQTT_TOPIC_SENSORID_INDEX]);
+
+            mosquitto_sub_topic_tokens_free(&topics, topic_count);
+
+
+            if (intSensorId == 0) {
+                // Assume 0 isn't valid sensor id
+                log4c_category_error(clientlog, "SensorId must be an integer: %s", 
+                                     topics[MQTT_TOPIC_SENSORID_INDEX]);
+                return;
+            }
+
+            addCommandToSend(intSensorId, OT_REQUEST_VOLTAGE, 0);
             
         } else {
             log4c_category_warn(clientlog, 
@@ -595,7 +694,8 @@ int main(int argc, char **argv){
     ledControl(redLED, ledOff);
     ledControl(greenLED, ledOn);
 
-    msgData.msgAvailable = 0;
+    // clear all the flags from the message data
+    memset(&msgData, 0, sizeof(msgData));
     while (1){
 
         HRF_receive_FSK_msg(encryptId, eTRVProductId, engManufacturerId, &msgData );
@@ -630,7 +730,7 @@ int main(int argc, char **argv){
                                                  msgData.sensorId);
                             HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                                               eTRVProductId, msgData.sensorId, 
-                                                              2, 0xBF , 0),
+                                                              2, OT_IDENTIFY, 0),
                                              encryptId);
                             break;
 
@@ -663,13 +763,20 @@ int main(int argc, char **argv){
                             }
                             break;
 
-                        case OT_SET_VALVE_STATE:
-                            log4c_category_notice(clientlog, "Set Valve State %d to eTRV sensorId %d",
-                                                  commandToSend->data, msgData.sensorId);
+                        case OT_EXERCISE_VALVE:
+                            log4c_category_notice(clientlog, "Excercise Valve for sensorId %d", msgData.sensorId);
                             HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                                               eTRVProductId, msgData.sensorId,
-                                                              3, OT_SET_VALVE_STATE, 0x01, 
-                                                              (commandToSend->data & 0xff)
+                                                              2, OT_EXERCISE_VALVE, 0x00 
+                                                             ), 
+                                             encryptId);
+                            break;
+
+                        case OT_REQUEST_VOLTAGE:
+                            log4c_category_notice(clientlog, "Request Voltage for sensorId %d", msgData.sensorId);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId,
+                                                              2, OT_REQUEST_VOLTAGE, 0x00 
                                                              ), 
                                              encryptId);
                             break;
@@ -680,6 +787,40 @@ int main(int argc, char **argv){
                             HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
                                                               eTRVProductId, msgData.sensorId,
                                                               2, OT_REQUEST_DIAGNOTICS, 0x00 
+                                                             ), 
+                                             encryptId);
+                            break;
+
+                        case OT_SET_VALVE_STATE:
+                            log4c_category_notice(clientlog, "Set Valve State %d to sensorId %d",
+                                                  commandToSend->data, msgData.sensorId);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId,
+                                                              3, OT_SET_VALVE_STATE, 0x01, 
+                                                              (commandToSend->data & 0xff)
+                                                             ), 
+                                             encryptId);
+                            break;
+
+                        case OT_SET_LOW_POWER_MODE:
+                            log4c_category_notice(clientlog, "Set Low Power Mode %d to sensorId %d",
+                                                  commandToSend->data, msgData.sensorId);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId,
+                                                              3, OT_SET_LOW_POWER_MODE, 0x01, 
+                                                              (commandToSend->data & 0xff)
+                                                             ), 
+                                             encryptId);
+                            break;
+
+                        case OT_SET_REPORTING_INTERVAL:
+                            log4c_category_notice(clientlog, "Set Reporting Interval %d to sensorId %d",
+                                                  commandToSend->data, msgData.sensorId);
+                            HRF_send_FSK_msg(HRF_make_FSK_msg(engManufacturerId, encryptId, 
+                                                              eTRVProductId, msgData.sensorId,
+                                                              3, OT_SET_REPORTING_INTERVAL, 0x02, 
+                                                              (commandToSend->data & 0xff),
+                                                              ((commandToSend->data >> 8) & 0xff)
                                                              ), 
                                              encryptId);
                             break;
@@ -714,7 +855,37 @@ int main(int argc, char **argv){
                          MQTT_TOPIC_SENT_TEMP_REPORT, msgData.sensorId);
                 mosquitto_publish(mosq, NULL, mqttTopic, 
                                   strlen(msgData.receivedTemperature), msgData.receivedTemperature, 
-                                  0, false);
+                                  1, false);
+            }
+
+            if (msgData.receivedDiagnostics) {
+                char mqttTopic[strlen(MQTT_TOPIC_SENT_DIAGNOSTICS_REPORT) 
+                    + MQTT_TOPIC_MAX_SENSOR_LENGTH 
+                    + 5 + 1];
+
+                log4c_category_notice(clientlog, "SensorId=%d Diagnostics 0:%x 1:%x", 
+                                      msgData.sensorId, 
+                                      msgData.diagnosticData[0], 
+                                      msgData.diagnosticData[1]);
+                snprintf(mqttTopic, sizeof(mqttTopic), "%s/%d", 
+                         MQTT_TOPIC_SENT_DIAGNOSTICS_REPORT, msgData.sensorId);
+                mosquitto_publish(mosq, NULL, mqttTopic, 2, msgData.diagnosticData, 1, false);
+            }
+
+            if (msgData.receivedVoltage) {
+                char mqttTopic[strlen(MQTT_TOPIC_SENT_VOLTAGE_REPORT) 
+                    + MQTT_TOPIC_MAX_SENSOR_LENGTH 
+                    + 5 + 1];
+
+                log4c_category_notice(clientlog, "SensorId=%d Battery Voltage %s", 
+                                      msgData.sensorId, 
+                                      msgData.voltageData);
+
+                snprintf(mqttTopic, sizeof(mqttTopic), "%s/%d", 
+                         MQTT_TOPIC_SENT_VOLTAGE_REPORT, msgData.sensorId);
+
+                mosquitto_publish(mosq, NULL, mqttTopic, strlen(msgData.voltageData), 
+                                  msgData.voltageData, 1, false);
             }
 
             // clear all the flags from the message data

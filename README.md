@@ -12,9 +12,30 @@ It also uses the log4c logging library.
 ## Status
 Alpha.  It works for me. Your experience may vary.
 Working : 
-* receiving MQTT commands set temperature and Identify eTRV (MIH0013) and sending to device
-* reporting eTRV temperature values received from device
 * sending ON/OFF commands to ENER002 remote controlled sockets.
+* MIH0013 (eTRV) commands 
+Commands are sent using /energenie/eTRV/_Command_/sensorId
+where _Command_ can be
+
+| Command | Payload | Comment |
+| Temperature | 4-30 (Ascii) | Set Target Temperature
+| Identify | None     | Makes the MIH0013 flash |
+| Exercise | None     | Causes Valve to go up and down.  Creates Diagnostic when finished.
+| Voltage  | None     | MIH0013 reports battery Voltage
+| Diagnostic | None   | Causes MIH0013 to report diagnostics
+| ValveState | "0", "1" or "2" (ascii) | 0=Set Valve Open 1=Closed 2=Normal Operation
+| PowerMode  | "0", "1" | 0=Low Power Mode off 1=On
+| ReportingInterval | 300-3600 (ascii) | Set the Reporting Interval (not tested)
+
+* MIH0013 (eTRV) reports
+Reports are received on Topic /energenie/eTRV/_Report_/sensorId
+where _Report_ can be
+
+| Report | Payload | Comment |
+| Temperature | Ascii string | Measured Temperature in degrees Centigrade
+| TargetTemperature | Ascii String | Target Temperature set
+| Diagnostics | 2 bytes | byte 0 = low byte, 1 = high byte
+| Voltage | Ascii String | Reported Battery Voltage
 
 ## Building
 

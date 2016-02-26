@@ -167,7 +167,9 @@ struct ReceivedMsgData {
     uint8_t receivedTempReport;
     char    receivedTemperature[MAX_DATA_LENGTH];
     uint8_t receivedDiagnostics;
-    uint8_t diagnosticData[2];
+    uint8_t diagnosticData[2];   /* 0 - Low Byte, 1 - High Byte */
+    uint8_t receivedVoltage;
+    char voltageData[MAX_DATA_LENGTH];
 };
 
 
@@ -189,7 +191,7 @@ void 	HRF_send_FSK_msg(uint8_t*, uint8_t);
 void 	encryptMsg(uint8_t, uint8_t*, uint8_t);
 void 	setupCrc(uint8_t*);
 void 	HRF_receive_FSK_msg(uint8_t, uint8_t, uint8_t, struct ReceivedMsgData *);
-void 	msgNextState(uint8_t, uint8_t, uint8_t, msg_t*);
+void 	msgNextState(uint8_t, uint8_t, uint8_t, msg_t*, struct ReceivedMsgData *);
 char* 	getIdName(uint8_t);
 char* 	getValString(uint64_t, uint8_t, uint8_t);
 
