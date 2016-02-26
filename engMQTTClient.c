@@ -721,7 +721,7 @@ int main(int argc, char **argv){
             memset(&msgData, 0, sizeof(msgData));
         }
 			
-        usleep(10000);
+        usleep(5000);
 	}
 	bcm2835_spi_end();
 	return 0;
