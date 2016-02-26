@@ -24,7 +24,7 @@ where _Command_ can be
 | Identify | None     | Makes the MIH0013 flash |
 | Exercise | None     | Causes Valve to go up and down.  Creates Diagnostic when finished.
 | Voltage  | None     | MIH0013 reports battery Voltage
-| Diagnostic | None   | Causes MIH0013 to report diagnostics
+| Diagnostics | None   | Causes MIH0013 to report diagnostics
 | ValveState | "0", "1" or "2" (ascii) | 0=Set Valve Open 1=Closed 2=Normal Operation
 | PowerMode  | "0", "1" | 0=Low Power Mode off 1=On
 | ReportingInterval | 300-3600 (ascii) | Set the Reporting Interval (not tested)
