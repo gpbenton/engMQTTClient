@@ -15,7 +15,7 @@ Alpha.  It works for me. Your experience may vary.
 Working : 
 * sending ON/OFF commands to ENER002 remote controlled sockets.
 * MIH0013 (eTRV) commands 
-Commands are sent using topics /energenie/eTRV/_Command_/sensorId
+Commands are sent using topics /energenie/eTRV/Command/_Command_/sensorId
 where _Command_ can be
 
 | Command | Payload | Comment |
@@ -30,7 +30,7 @@ where _Command_ can be
 | ReportingInterval | 300-3600 (ascii) | Set the Reporting Interval (not tested)
 
 * MIH0013 (eTRV) reports
-Reports are received on Topic /energenie/eTRV/_Report_/sensorId
+Reports are received on Topic /energenie/eTRV/Report/_Report_/sensorId
 where _Report_ can be
 
 | Report | Payload | Comment |
