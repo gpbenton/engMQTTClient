@@ -154,6 +154,25 @@ Sitemap file
 	Chart item=Temperature_Chart period=D refresh=30000 visibility=[Temperature_Chart_Period==1]
 	Chart item=Temperature_Chart period=W refresh=30000 visibility=[Temperature_Chart_Period==2]
 	
+### Home Assistant example
+
+In configuration.yaml
+
+```
+light:
+  - name: "Bedside Lamp"
+    platform: mqtt
+    command_topic: "/energenie/ENER002/8ee8ee888ee8ee888ee8/1"
+    payload_on: "On"
+    payload_off: "Off"
+
+sensor lounge:
+  - platform: mqtt
+    state_topic: "/energenie/eTRV/Report/Temperature/329"
+    name: "Lounge Temperature"
+    unit_of_measurement: "°C"
+
+```
 
 ## License
 This code is published under the MIT License.  The last paragraph is important.  If running this code causes your device to fail, I'm not responsible.
