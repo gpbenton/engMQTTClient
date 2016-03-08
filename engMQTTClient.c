@@ -90,7 +90,7 @@ SOFTWARE.
 
 static const char* mqttBrokerHost =  "localhost";  // TODO configuration for other set ups
 static const int   mqttBrokerPort = 1883;
-static const int keepalive = 300;
+static const int keepalive = 60;
 static const bool clean_session = true;
 
 /* OpenThings definitions */
@@ -741,7 +741,7 @@ int main(int argc, char **argv){
                                                               eTRVProductId, msgData.sensorId,
                                                               4, OT_TEMP_SET, 0x92, 
                                                               (commandToSend->data & 0xff), 
-                                                              (commandToSend->data >> 8 & 0xff)), 
+                                                              0x00), 
                                              encryptId);
 
                             {
