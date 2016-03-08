@@ -5,9 +5,9 @@ Please note that this is for the 'two way' ener314-rt board, which is different 
 
 ![ener314-rt board] (https://energenie4u.co.uk/res/images/products/medium/RXTX Board Front L.jpg)
 
-engMQTTClient uses the mosquitto MQTT client library to do the MQTT handling.  Communication with the Energenie products is developed from the code in  the directory eTRV/eTRV\_TX/HopeRF-TX-RX
+engMQTTClient uses the mosquitto MQTT client library to do the MQTT handling.  Communication with the Energenie products is developed from the code in the energenie example directory eTRV/eTRV\_TX/HopeRF-TX-RX
 
-It also uses the log4c logging library.
+It also uses the [log4c] (http://log4c.sourceforge.net/) logging library and the [cJSON] (https://sourceforge.net/projects/cjson/) parser.
 
 ## Status
 Alpha.  It works for me. Your experience may vary.
@@ -181,3 +181,4 @@ The mosquitto MQTT library is released under the Eclipse Public License.
 
 The log4c logging library is released under the LGPL license.
 
+The cJSON JSON parser is released under the MIT license.
