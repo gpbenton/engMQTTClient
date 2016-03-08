@@ -33,11 +33,12 @@ SOFTWARE.
 #include <mosquitto.h>
 #include <sys/queue.h>
 #include <pthread.h>
-#include "ctype.h"
+#include <ctype.h>
 #include "engMQTTClient.h"
 #include "dev_HRF.h"
 #include "OpenThings.h"
 #include "decoder.h"
+#include "cJSON.h"
 
 /* MQTT Definitions */
 
@@ -204,6 +205,44 @@ void hexToBytes(uint8_t *bytes, char *hex) {
                            hex,
                            logBuffer);
     }
+}
+
+/*
+ * Creates a JSON object representing the data in the 
+ * diagnostic data array
+ */
+cJSON * createDiagnosticDataJson(uint8_t *diagnosticData) {
+    static const uint8_t D0_MASK = 0x01;
+    static const uint8_t D1_MASK = 0x02;
+    static const uint8_t D2_MASK = 0x04;
+    static const uint8_t D3_MASK = 0x08;
+    static const uint8_t D4_MASK = 0x10;
+    static const uint8_t D5_MASK = 0x20;
+    static const uint8_t D6_MASK = 0x40;
+    static const uint8_t D7_MASK = 0x80;
+
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) return NULL;
+    cJSON_AddItemToObject(root, "Motor current below expectation", cJSON_CreateBool(*diagnosticData & D0_MASK));
+    cJSON_AddItemToObject(root, "Motor current always high", cJSON_CreateBool(*diagnosticData & D1_MASK));
+    cJSON_AddItemToObject(root, "Motor taking too long", cJSON_CreateBool(*diagnosticData & D2_MASK));
+    cJSON_AddItemToObject(root, "discrepancy between air and pipe sensors", cJSON_CreateBool(*diagnosticData & D3_MASK));
+    cJSON_AddItemToObject(root, "air sensor out of expected range", cJSON_CreateBool(*diagnosticData & D4_MASK));
+    cJSON_AddItemToObject(root, "pipe sensor out of expected range", cJSON_CreateBool(*diagnosticData & D5_MASK));
+    cJSON_AddItemToObject(root, "low power mode is enabled", cJSON_CreateBool(*diagnosticData & D6_MASK));
+    cJSON_AddItemToObject(root, "no target temperature has been set by host", cJSON_CreateBool(*diagnosticData & D7_MASK));
+    diagnosticData++;
+
+    cJSON_AddItemToObject(root, "valve may be sticking", cJSON_CreateBool(*diagnosticData & D0_MASK));
+    cJSON_AddItemToObject(root, "valve exercise was successful", cJSON_CreateBool(*diagnosticData & D1_MASK));
+    cJSON_AddItemToObject(root, "valve exercise was unsuccessful", cJSON_CreateBool(*diagnosticData & D2_MASK));
+    cJSON_AddItemToObject(root, "driver micro has suffered a watchdog reset and needs data refresh", cJSON_CreateBool(*diagnosticData & D3_MASK));
+    cJSON_AddItemToObject(root, "driver micro has suffered a noise reset and needs data refresh", cJSON_CreateBool(*diagnosticData & D4_MASK));
+    cJSON_AddItemToObject(root, "battery voltage has fallen below 2.2V and valve has been opened", cJSON_CreateBool(*diagnosticData & D5_MASK));
+    cJSON_AddItemToObject(root, "request for heat messaging is enabled", cJSON_CreateBool(*diagnosticData & D6_MASK));
+    cJSON_AddItemToObject(root, "request for heat", cJSON_CreateBool(*diagnosticData & D7_MASK));
+
+    return root;
 }
 
 void my_message_callback(struct mosquitto *mosq, void *userdata, 
@@ -862,14 +901,27 @@ int main(int argc, char **argv){
                 char mqttTopic[strlen(MQTT_TOPIC_SENT_DIAGNOSTICS_REPORT) 
                     + MQTT_TOPIC_MAX_SENSOR_LENGTH 
                     + 5 + 1];
+                cJSON *root;
+                char *jsonString;
 
                 log4c_category_notice(clientlog, "SensorId=%d Diagnostics 0:%x 1:%x", 
                                       msgData.sensorId, 
                                       msgData.diagnosticData[0], 
                                       msgData.diagnosticData[1]);
-                snprintf(mqttTopic, sizeof(mqttTopic), "%s/%d", 
-                         MQTT_TOPIC_SENT_DIAGNOSTICS_REPORT, msgData.sensorId);
-                mosquitto_publish(mosq, NULL, mqttTopic, 2, msgData.diagnosticData, 1, false);
+
+                root = createDiagnosticDataJson(msgData.diagnosticData);
+                if (root == NULL) {
+                    log4c_category_error(clientlog, "Unable to create Diagnostic Data JSON object");
+                } else {
+                    snprintf(mqttTopic, sizeof(mqttTopic), "%s/%d", 
+                             MQTT_TOPIC_SENT_DIAGNOSTICS_REPORT, msgData.sensorId);
+                    jsonString = cJSON_Print(root);
+                    log4c_category_debug(clientlog, "Diagnostics %s", jsonString);
+                    mosquitto_publish(mosq, NULL, mqttTopic, strlen(jsonString)+1, jsonString,
+                                      1, false);
+                    free(jsonString);
+                    cJSON_Delete(root);
+                }
             }
 
             if (msgData.receivedVoltage) {
