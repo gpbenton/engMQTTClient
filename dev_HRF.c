@@ -273,6 +273,8 @@ void HRF_send_OOK_msg(uint8_t *address, int socketNum, int On)
     pthread_mutex_unlock(&mutex);
     ledControl(redLED, ledOff);
 
+    // Delay found necessary to enable sending messages to a number of different
+    // devices in a short time.
     usleep(7000);
 }
 
