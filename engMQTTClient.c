@@ -77,7 +77,7 @@ SOFTWARE.
 #define MQTT_TOPIC_TYPE_INDEX 4
 #define MQTT_TOPIC_SENSORID_INDEX 5
 
-#define MQTT_TOPIC_ETRV_MAX_INDEX MQTT_TOPIC_SENSORID_INDEX
+#define MQTT_TOPIC_ETRV_COUNT (MQTT_TOPIC_SENSORID_INDEX + 1)
 
 #define MQTT_TOPIC_MAX_SENSOR_LENGTH  8          // length of string of largest sensorId
                                                  // 16777215 (0xffffff)
@@ -87,7 +87,7 @@ SOFTWARE.
 
 #define MQTT_TOPIC_OOK_ADDRESS_INDEX 3
 #define MQTT_TOPIC_OOK_SOCKET_INDEX 4
-#define MQTT_TOPIC_ENER002_MAX_INDEX 5
+#define MQTT_TOPIC_ENER002_COUNT (MQTT_TOPIC_OOK_SOCKET_INDEX + 1)
 
 static const char* mqttBrokerHost =  "localhost";  // TODO configuration for other set ups
 static const int   mqttBrokerPort = 1883;
@@ -238,7 +238,7 @@ cJSON * createDiagnosticDataJson(uint8_t *diagnosticData) {
     cJSON_AddItemToObject(root, "valve exercise was unsuccessful", cJSON_CreateBool(*diagnosticData & D2_MASK));
     cJSON_AddItemToObject(root, "driver micro has suffered a watchdog reset and needs data refresh", cJSON_CreateBool(*diagnosticData & D3_MASK));
     cJSON_AddItemToObject(root, "driver micro has suffered a noise reset and needs data refresh", cJSON_CreateBool(*diagnosticData & D4_MASK));
-    cJSON_AddItemToObject(root, "battery voltage has fallen below 2.2V and valve has been opened", cJSON_CreateBool(*diagnosticData & D5_MASK));
+    cJSON_AddItemToObject(root, "battery voltage has fallen below 2p2V and valve has been opened", cJSON_CreateBool(*diagnosticData & D5_MASK));
     cJSON_AddItemToObject(root, "request for heat messaging is enabled", cJSON_CreateBool(*diagnosticData & D6_MASK));
     cJSON_AddItemToObject(root, "request for heat", cJSON_CreateBool(*diagnosticData & D7_MASK));
 
@@ -283,7 +283,7 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
     if (strcmp(MQTT_TOPIC_ENER002, topics[MQTT_TOPIC_DEVICE_INDEX]) == 0) {
         // Message for plug in socket type ENER002
 
-        if (topic_count != MQTT_TOPIC_ENER002_MAX_INDEX) {
+        if (topic_count != MQTT_TOPIC_ENER002_COUNT) {
             log4c_category_error(clientlog, "Invalid topic count(%d) for %s", 
                                  topic_count,
                                  MQTT_TOPIC_ENER002);
@@ -371,7 +371,7 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
     } else if (strcmp(MQTT_TOPIC_ETRV, topics[MQTT_TOPIC_DEVICE_INDEX]) == 0) {
         // Message for eTRV Radiator Valve
         
-        if (topic_count < MQTT_TOPIC_ETRV_MAX_INDEX) {
+        if (topic_count != MQTT_TOPIC_ETRV_COUNT) {
             log4c_category_error(clientlog, "Invalid topic count(%d) for %s", 
                                  topic_count,
                                  MQTT_TOPIC_ETRV);
