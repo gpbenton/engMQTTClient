@@ -336,36 +336,22 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
         }
 
         /* Check we only have hex digits in address */
-        int i;
-        for (i = 0; i < strlen(address); i++) {
-            if (isxdigit(address[i]) == 0) {
-                log4c_category_error(clientlog, 
-                                     "Address must only contain hex digits: %s",
-                                     address);
-                return;
-            }
+        int addressNumber = atoi(address);
+
+        if (addressNumber != 2 && addressNumber != 8 && addressNumber != 16) {
+            log4c_category_error(clientlog, "Invalid address, must be 2, 8 or 16 %s",
+                                 address);
+            return;
         }
+
 
         uint8_t addressBytes[OOK_MSG_ADDRESS_LENGTH];
-        int paddedAddressLength = OOK_MSG_ADDRESS_LENGTH * 2;
-        int j;
-        char addressPadded[paddedAddressLength + 1];
 
-        // Pad the address with 0
-        for (i = 0; i < paddedAddressLength - strlen(address); i++) {
-            addressPadded[i] = '0';
+        int i;
+
+        for (i = 5; i<=14; ++i) {
+            addressBytes[i-5] = addressNumber + (i&1) * 6 + 128 + (i&2) * 48;
         }
-        for (j= 0; j < strlen(address); i++, j++) {
-            addressPadded[i] = address[j];
-        }
-        addressPadded[paddedAddressLength] = '\0'; 
-
-        // Convert to bytes
-        hexToBytes(addressBytes, addressPadded);
-
-        log4c_category_debug(clientlog, "Sending %d to address:socket %s:%d",
-                             onOff, addressPadded, socketNum);
-
         HRF_send_OOK_msg(addressBytes, socketNum, onOff);
 
     } else if (strcmp(MQTT_TOPIC_ETRV, topics[MQTT_TOPIC_DEVICE_INDEX]) == 0) {

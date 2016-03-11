@@ -66,7 +66,7 @@ assuming log4c has been placed in /usr/local/lib as per default.
 For ENER002 sockets, using its own protocol the structure is
         /energenie/ENER002/_address_/_socketnum_
 
-        _address_ is an (up to) 20 digit hex string 
+        _address_ is 2, 8 or 16 which is used to generate the OOK address.  The algorithm to produce this is specified in the sample code.  This changes the first digit to another that I found works (the original value in the sample code is 8).  This will enable use for up to 12 sockets, which is enough for now.
         _socketnum_ is 0-4.  0 addresses all the sockets accessed by address, 1-4 access individual sockets at that address.
 
 For eTRV (and hopefully other OpenThings protocol devices) the structure to send command to device is
@@ -89,7 +89,7 @@ mosquitto_sub -v -h your_mosquitto_broker -t /energenie/#
 
 Turn on socket
 ```sh
-mosquitto_pub -h your_mosquitto_broker -t /energenie/ENER002/8ee8ee888ee8ee888ee8/4 -m On
+mosquitto_pub -h your_mosquitto_broker -t /energenie/ENER002/8/4 -m On
 ```
 
 Identify eTRV (flashes led for 60s)
@@ -104,7 +104,7 @@ Turn Socket On
         import paho.mqtt.publish as publish
 
         # Switch On
-        publish.single("/energenie/ENER002/8ee8ee888ee8ee888ee8/4","On", hostname="192.168.0.3")
+        publish.single("/energenie/ENER002/8/4","On", hostname="192.168.0.3")
 ```
 
 Listen for eTRV temperature reports (can also be used to find out the address of your eTRVs)
@@ -137,7 +137,7 @@ Listen for eTRV temperature reports (can also be used to find out the address of
 Item file
 
         Switch Light_FF_Bed_Table 	"Bedside Lamp" 	(FF_Bed, Lights)
-         {mqtt=">[raspberryPI:/energenie/ENER002/8ee8ee888ee8ee888ee8/1:command:ON:On],>[raspberryPI:/energenie/ENER002/8ee8ee888ee8ee888ee8/1:command:OFF:Off]"}
+         {mqtt=">[raspberryPI:/energenie/ENER002/8/1:command:ON:On],>[raspberryPI:/energenie/ENER002/8/1:command:OFF:Off]"}
 
 Sitemap file
         
@@ -179,7 +179,7 @@ In configuration.yaml
 light:
   - name: "Bedside Lamp"
     platform: mqtt
-    command_topic: "/energenie/ENER002/8ee8ee888ee8ee888ee8/1"
+    command_topic: "/energenie/ENER002/8/1"
     payload_on: "On"
     payload_off: "Off"
 
