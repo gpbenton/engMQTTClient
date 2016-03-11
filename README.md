@@ -80,6 +80,23 @@ To receive commands the structure is
         
 ## Usage
 
+### Command Line Example
+
+Listen for Incoming eTRV reports
+```sh
+mosquitto_sub -v -h your_mosquitto_broker -t /energenie/#
+```
+
+Turn on socket
+```sh
+mosquitto_pub -h your_mosquitto_broker -t /energenie/ENER002/8ee8ee888ee8ee888ee8/4 -m On
+```
+
+Identify eTRV (flashes led for 60s)
+```sh
+mosquitto_pub -h your_mosquitto_broker -t /energenie/eTRV/Command/Identify/329 -n
+```
+
 ### Python Example
 
 Turn Socket On
