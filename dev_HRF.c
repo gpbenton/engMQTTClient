@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 #include <log4c.h>
 #include <bcm2835.h>
 #include <pthread.h>
@@ -271,6 +272,8 @@ void HRF_send_OOK_msg(uint8_t *address, int socketNum, int On)
 	HRF_wait_for (ADDR_IRQFLAGS1, MASK_MODEREADY, TRUE);			// wait for ModeReady
     pthread_mutex_unlock(&mutex);
     ledControl(redLED, ledOff);
+
+    usleep(7000);
 }
 
 uint8_t* HRF_make_FSK_msg(uint8_t manufacturerId, uint8_t encryptionId,
