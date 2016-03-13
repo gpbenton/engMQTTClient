@@ -99,6 +99,11 @@ mosquitto_pub -h your_mosquitto_broker -t /energenie/eTRV/Command/Identify/329 -
 
 ### Python Example
 
+Install paho library
+```
+sudo pip install paho-mqtt
+```
+
 Turn Socket On
 ```Python
         import paho.mqtt.publish as publish
