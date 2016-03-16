@@ -42,8 +42,10 @@ where _Report_ can be
 
 ## Building
 
-Download and compile and install the latest version log4c.  The version from the respository is too old to work.  I have log4c 1.2.4 working.
+### Log4c
+The version from the raspian respository is too old to work, so you need to get the tarball and install that.  See the instructions at [http://log4c.sourceforge.net/#installation]
 
+### Mosquitto
 Install the following packages
 
 	pi@raspberrypi ~/energenie/engMQTTClient $ dpkg --get-selections | grep mosquitto
@@ -52,12 +54,13 @@ Install the following packages
 	mosquitto                                       install
 	mosquitto-clients                               install
 
+### engMQTTClient
 
-Compile engMQTTClient using 'make'.
+Clone this repository and compile engMQTTClient using 'make'.
 
 Run the program using
 
-        sudo LD\_LIBRARY\_PATH=/usr/local/lib ./engMQTTClient
+        sudo LD_LIBRARY_PATH=/usr/local/lib ./engMQTTClient
 
 assuming log4c has been placed in /usr/local/lib as per default.
 
