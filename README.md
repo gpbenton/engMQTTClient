@@ -43,16 +43,19 @@ where _Report_ can be
 ## Building
 
 ### Log4c
-The version from the raspian respository is too old to work, so you need to get the tarball and install that.  See the instructions at [http://log4c.sourceforge.net/#installation]
+The version from the raspian respository is too old to work, so you need to get the tarball and install that.  See the instructions at http://log4c.sourceforge.net/#installation
 
 ### Mosquitto
-Install the following packages
 
-	pi@raspberrypi ~/energenie/engMQTTClient $ dpkg --get-selections | grep mosquitto
-	libmosquitto-dev:armhf                          install
-	libmosquitto1:armhf                             install
-	mosquitto                                       install
-	mosquitto-clients                               install
+The mosquitto packages in the raspian respository are also out of date.  To get the latest follow the instructions at http://mosquitto.org/2013/01/mosquitto-debian-repository/
+
+You need the dev packages as well to compile engMQTTClient.
+```
+mosquitto - MQTT version 3.1/3.1.1 compatible message broker
+mosquitto-dbg - debugging symbols for mosquitto binaries
+mosquitto-dev - Development files for Mosquitto
+mosquitto-clients - Mosquitto command line MQTT clients
+```
 
 ### engMQTTClient
 
