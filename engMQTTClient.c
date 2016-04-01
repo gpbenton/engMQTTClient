@@ -338,20 +338,22 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
         /* Check we only have hex digits in address */
         int addressNumber = atoi(address);
 
-        if (addressNumber != 2 && addressNumber != 8 && addressNumber != 16) {
-            log4c_category_error(clientlog, "Invalid address, must be 2, 8 or 16 %s",
+        if (addressNumber > 0xFFFFF) {
+            log4c_category_error(clientlog, "Invalid address, must be less than 1048576: %s",
                                  address);
             return;
         }
 
-
         uint8_t addressBytes[OOK_MSG_ADDRESS_LENGTH];
-
         int i;
 
-        for (i = 5; i<=14; ++i) {
-            addressBytes[i-5] = addressNumber + (i&1) * 6 + 128 + (i&2) * 48;
+        for (i = OOK_MSG_ADDRESS_LENGTH - 1; i>=0; --i) {
+            int lownibble = (addressNumber & 0x01) ? 0x0E : 0x08;
+            int highnibble = (addressNumber & 0x02) ? 0xE0 : 0x80;
+            addressBytes[i] = highnibble | lownibble;
+            addressNumber = addressNumber >> 2;
         }
+
         HRF_send_OOK_msg(addressBytes, socketNum, onOff);
 
     } else if (strcmp(MQTT_TOPIC_ETRV, topics[MQTT_TOPIC_DEVICE_INDEX]) == 0) {
