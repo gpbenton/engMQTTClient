@@ -42,22 +42,28 @@ where _Report_ can be
 
 ## Building
 
-Download and compile and install the latest version log4c.  The version from the respository is too old to work.  I have log4c 1.2.4 working.
+### Log4c
+The version from the raspian respository is too old to work, so you need to get the tarball and install that.  See the instructions at http://log4c.sourceforge.net/#installation
 
-Install the following packages
+### Mosquitto
 
-	pi@raspberrypi ~/energenie/engMQTTClient $ dpkg --get-selections | grep mosquitto
-	libmosquitto-dev:armhf                          install
-	libmosquitto1:armhf                             install
-	mosquitto                                       install
-	mosquitto-clients                               install
+The mosquitto packages in the raspian respository are also out of date.  To get the latest follow the instructions at http://mosquitto.org/2013/01/mosquitto-debian-repository/
 
+You need the dev packages as well to compile engMQTTClient.
+```
+mosquitto - MQTT version 3.1/3.1.1 compatible message broker
+mosquitto-dbg - debugging symbols for mosquitto binaries
+mosquitto-dev - Development files for Mosquitto
+mosquitto-clients - Mosquitto command line MQTT clients
+```
 
-Compile engMQTTClient using 'make'.
+### engMQTTClient
+
+Clone this repository and compile engMQTTClient using 'make'.
 
 Run the program using
 
-        sudo LD\_LIBRARY\_PATH=/usr/local/lib ./engMQTTClient
+        sudo LD_LIBRARY_PATH=/usr/local/lib ./engMQTTClient
 
 assuming log4c has been placed in /usr/local/lib as per default.
 
@@ -98,6 +104,11 @@ mosquitto_pub -h your_mosquitto_broker -t /energenie/eTRV/Command/Identify/329 -
 ```
 
 ### Python Example
+
+Install paho library
+```
+sudo pip install paho-mqtt
+```
 
 Turn Socket On
 ```Python
