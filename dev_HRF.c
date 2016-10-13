@@ -275,7 +275,10 @@ void HRF_send_OOK_msg(uint8_t *address, int socketNum, int On)
 
     // Delay found necessary to enable sending messages to a number of different
     // devices in a short time.
-    usleep(7000);
+    // From Whaleygeek
+    //  * At OOK 4800bps, 1 bit is 20uS, 1 byte is 1.6ms, 16 bytes is 26.6ms
+    //  I am doing this 8 times so try a delay of 250ms 
+    usleep(250000);
 }
 
 uint8_t* HRF_make_FSK_msg(uint8_t manufacturerId, uint8_t encryptionId,
