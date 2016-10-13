@@ -116,6 +116,8 @@ enum ledColor {
     greenLED = RPI_V2_GPIO_P1_13
 };
 
+#define RESET_PIN RPI_V2_GPIO_P1_22
+
 enum ledOnOff {
     ledOff = LOW,
     ledOn = HIGH
