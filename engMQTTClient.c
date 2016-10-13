@@ -679,6 +679,13 @@ int main(int argc, char **argv){
     ledControl(greenLED, ledOff);
     ledControl(redLED, ledOn);
 
+	// RESET
+	bcm2835_gpio_fsel(RESET_PIN, BCM2835_GPIO_FSEL_OUTP);
+	bcm2835_gpio_write(RESET_PIN, HIGH);
+	usleep(10000);
+	bcm2835_gpio_write(RESET_PIN, LOW);
+	usleep(10000);
+
 	// SPI INIT
 	bcm2835_spi_begin();	
 	bcm2835_spi_setClockDivider(SPI_CLOCK_DIVIDER_9p6MHZ); 		
