@@ -133,8 +133,26 @@ log4c_category_t* hrflog = NULL;
  */
 void addCommandToSend(int deviceId, uint8_t command, uint32_t value) {
 
-    struct entry *newEntry = malloc(sizeof(struct entry));
+    struct entry *newEntry;
+    struct entry *p;
 
+
+    pthread_mutex_lock(&sensorListMutex);
+    /* Find an existing entry in the queue and replace that */
+    for (p = sensorListHead.tqh_first; p != NULL; p = p->entries.tqe_next) {
+        if (p->sensorId == deviceId && p->command == command) {
+            log4c_category_debug(clientlog, "Replacing existing command with %d:%x:%d",
+                                 deviceId, command, value);
+            p->data = value;
+            pthread_mutex_unlock(&sensorListMutex);
+            return;
+        }
+    }
+    pthread_mutex_unlock(&sensorListMutex);
+
+    /* No equivalent found, so create a new entry */
+
+    newEntry = malloc(sizeof(struct entry));
     newEntry->sensorId = deviceId;
     newEntry->command = command;
     newEntry->data = value;
