@@ -128,7 +128,6 @@ log4c_category_t* hrflog = NULL;
 
 /* Adds a command and data to the list of things to be sent
  * to an OpenThings type device
- * TODO:  Replace duplicates commands (e.g. set temperature)
  * TODO:  Prioritize IDENTITY commands
  */
 void addCommandToSend(int deviceId, uint8_t command, uint32_t value) {
