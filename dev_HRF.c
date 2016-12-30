@@ -158,7 +158,7 @@ void HRF_wait_for(uint8_t addr, uint8_t mask, uint8_t val){
 	} while ((ret & mask) != (val ? mask : 0));
 }
 
-void HRF_send_OOK_msg(uint8_t *address, int socketNum, int On)
+void HRF_send_OOK_msg(uint8_t *address, int socketNum, int On, int repeat_send)
 {
 	uint8_t buf[OOK_BUF_SIZE];
 	uint8_t i;
@@ -258,7 +258,7 @@ void HRF_send_OOK_msg(uint8_t *address, int socketNum, int On)
 	
 	HRF_reg_Wn(buf + 4, 0, 12);		// Send few more same messages
 
-	for (i = 0; i < 8; ++i)
+	for (i = 0; i < repeat_send; ++i)
 	{
 		HRF_wait_for(ADDR_IRQFLAGS2, MASK_FIFOLEVEL, FALSE);
 		HRF_reg_Wn(buf, 0, 16);			// +4 sync bytes
@@ -277,8 +277,8 @@ void HRF_send_OOK_msg(uint8_t *address, int socketNum, int On)
     // devices in a short time.
     // From Whaleygeek
     //  * At OOK 4800bps, 1 bit is 20uS, 1 byte is 1.6ms, 16 bytes is 26.6ms
-    //  I am doing this 8 times so try a delay of 250ms 
-    usleep(250000);
+    // Delay by this times the number of repeats plus a fudge factor
+    usleep(repeat_send * (26600) + 38000 );
 }
 
 uint8_t* HRF_make_FSK_msg(uint8_t manufacturerId, uint8_t encryptionId,
