@@ -101,6 +101,10 @@ static const uint8_t encryptId = 0xf2;           // Encryption ID for eTRV
 
 static int err = 0;
 
+/* Options */
+static int repeat_send = 8;                     // The number of times to 
+                                                // send an ook message
+
 static pthread_mutex_t sensorListMutex;
 static TAILQ_HEAD(tailhead, entry) sensorListHead;
 
@@ -118,7 +122,8 @@ enum fail_codes {
     ERROR_MOSQ_NEW,
     ERROR_MOSQ_CONNECT,
     ERROR_MOSQ_LOOP_START,
-    ERROR_ENER_INIT_FAIL
+    ERROR_ENER_INIT_FAIL,
+    ERROR_INVALID_PARAM
 };
 
 
@@ -371,7 +376,7 @@ void my_message_callback(struct mosquitto *mosq, void *userdata,
             addressNumber = addressNumber >> 2;
         }
 
-        HRF_send_OOK_msg(addressBytes, socketNum, onOff);
+        HRF_send_OOK_msg(addressBytes, socketNum, onOff, repeat_send);
 
     } else if (strcmp(MQTT_TOPIC_ETRV, topics[MQTT_TOPIC_DEVICE_INDEX]) == 0) {
         // Message for eTRV Radiator Valve
@@ -673,6 +678,7 @@ int main(int argc, char **argv){
     		
     struct mosquitto *mosq = NULL;
     struct ReceivedMsgData msgData;
+    int c;
 	
     if (log4c_init()) {
         fprintf(stderr, "log4c_init() failed");
@@ -682,6 +688,23 @@ int main(int argc, char **argv){
     clientlog = log4c_category_get("MQTTClient");
     stacklog = log4c_category_get("MQTTStack");
     hrflog = log4c_category_get("hrf");
+
+    while ((c = getopt (argc, argv, "r:")) != -1) {
+        switch (c) {
+            case 'r':
+                repeat_send = atoi(optarg);
+                if (repeat_send == 0) {
+                    log4c_category_crit(clientlog, "repeat_send must be an integer");
+                    return ERROR_INVALID_PARAM;
+                }
+                break;
+
+            default:
+                log4c_category_crit(clientlog, "Invalid parameter");
+                return ERROR_INVALID_PARAM;
+        }
+    }
+                
 
     TAILQ_INIT(&sensorListHead);
 

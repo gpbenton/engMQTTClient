@@ -42,10 +42,14 @@ where _Report_ can be
 
 ## Building
 
-### Log4c
+### Prerequisites
+#### Log4c
 The version from the raspian respository is too old to work, so you need to get the tarball and install that.  See the instructions at http://log4c.sourceforge.net/#installation
 
-### Mosquitto
+#### BCM 2835 C Library
+Download and install as per instructions from http://www.airspayce.com/mikem/bcm2835/index.html
+
+#### Mosquitto
 
 The mosquitto packages in the raspian respository are also out of date.  To get the latest follow the instructions at http://mosquitto.org/2013/01/mosquitto-debian-repository/
 
@@ -57,7 +61,7 @@ mosquitto-dev - Development files for Mosquitto
 mosquitto-clients - Mosquitto command line MQTT clients
 ```
 
-### engMQTTClient
+### Building engMQTTClient
 
 Clone this repository and compile engMQTTClient using 'make'.
 
