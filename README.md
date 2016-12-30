@@ -10,7 +10,7 @@ engMQTTClient uses the mosquitto MQTT client library to do the MQTT handling.  C
 It also uses the [log4c] (http://log4c.sourceforge.net/) logging library and the [cJSON] (https://sourceforge.net/projects/cjson/) parser.
 
 ## Status
-Alpha.  It works for me. Your experience may vary.
+Beta.  Not really production ready, but in use at my house and others have downloaded, compiled and got it to work.  Feature requests are welcome, but as I only have one Pi and it used to run the heating and lights in my house, will only get developed when it can be taken offline.
 
 Working : 
 * sending ON/OFF commands to ENER002 remote controlled sockets.
@@ -28,6 +28,8 @@ where _Command_ can be
 | ValveState | "0", "1" or "2" (ascii) | 0=Set Valve Open 1=Closed 2=Normal Operation
 | PowerMode  | "0", "1" | 0=Low Power Mode off 1=On
 | ReportingInterval | 300-3600 (ascii) | Set the Reporting Interval (not tested)
+
+As of the merge of issue 11, repeat commands that are issued for the same sensorId, will be replaced in the queue rather than added to it.  So, for example, issueing a Temperature command of 18 and then 20 for the same sensor will result in only the 20 being sent to the trv.
 
 * MIH0013 (eTRV) reports
 Reports are received on Topic /energenie/eTRV/Report/_Report_/sensorId
@@ -65,11 +67,18 @@ mosquitto-clients - Mosquitto command line MQTT clients
 
 Clone this repository and compile engMQTTClient using 'make'.
 
-Run the program using
+## Running
+
+Run the program as root using
 
         sudo LD_LIBRARY_PATH=/usr/local/lib ./engMQTTClient
 
 assuming log4c has been placed in /usr/local/lib as per default.
+
+### Parameters
+| Option | Parameter | Default     |Description |
+|--------|-----------|-------------|------------|
+| -r     | integer   | 8           | Number of times ook message is sent.  Increase if you are experiencing communication difficulties with switches |
 
 ### MQTT Topic structure
 
