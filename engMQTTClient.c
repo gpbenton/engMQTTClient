@@ -952,7 +952,7 @@ int main(int argc, char **argv){
                              MQTT_TOPIC_SENT_DIAGNOSTICS_REPORT, msgData.sensorId);
                     jsonString = cJSON_Print(root);
                     log4c_category_debug(clientlog, "Diagnostics %s", jsonString);
-                    mosquitto_publish(mosq, NULL, mqttTopic, strlen(jsonString)+1, jsonString,
+                    mosquitto_publish(mosq, NULL, mqttTopic, strlen(jsonString), jsonString,
                                       1, false);
                     free(jsonString);
                     cJSON_Delete(root);
