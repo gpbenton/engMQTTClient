@@ -1,13 +1,13 @@
 # engMQTTClient
-MQTT client for Energenie [ener314-rt board] (https://energenie4u.co.uk/catalogue/product/ENER314-RT) running on a raspberry Pi
+MQTT client for Energenie [ener314-rt board](https://energenie4u.co.uk/catalogue/product/ENER314-RT) running on a raspberry Pi
 
 Please note that this is for the 'two way' ener314-rt board, which is different from 'one way' ener314 board, and does not work for the 'one way' board.
 
-![ener314-rt board] (https://energenie4u.co.uk/res/images/products/medium/RXTX Board Front L.jpg)
+![ener314-rt board](https://energenie4u.co.uk/res/images/products/medium/RXTX Board Front L.jpg)
 
 engMQTTClient uses the mosquitto MQTT client library to do the MQTT handling.  Communication with the Energenie products is developed from the code in the energenie example directory eTRV/eTRV\_TX/HopeRF-TX-RX
 
-It also uses the [log4c] (http://log4c.sourceforge.net/) logging library and the [cJSON] (https://sourceforge.net/projects/cjson/) parser.
+It also uses the [log4c](http://log4c.sourceforge.net/) logging library and the [cJSON](https://sourceforge.net/projects/cjson/) parser.
 
 ## Status
 Beta.  Not really production ready, but in use at my house and others have downloaded, compiled and got it to work.  Feature requests are welcome, but as I only have one Pi and it used to run the heating and lights in my house, will only get developed when it can be taken offline.
