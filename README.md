@@ -78,6 +78,8 @@ assuming log4c has been placed in /usr/local/lib as per default.
 ### Parameters
 | Option | Parameter | Default     |Description |
 |--------|-----------|-------------|------------|
+| -h     | string    | localhost   | host address of MQTT Broker |
+| -p     | integer   | 1883        | port of MQTT Broker |
 | -r     | integer   | 8           | Number of times ook message is sent.  Increase if you are experiencing communication difficulties with switches |
 
 ### MQTT Topic structure
