@@ -89,8 +89,9 @@ SOFTWARE.
 #define MQTT_TOPIC_OOK_SOCKET_INDEX 4
 #define MQTT_TOPIC_ENER002_COUNT (MQTT_TOPIC_OOK_SOCKET_INDEX + 1)
 
-static const char* mqttBrokerHost =  "localhost";  // TODO configuration for other set ups
-static const int   mqttBrokerPort = 1883;
+// host and port can be overriden at run time
+static char* mqttBrokerHost =  "localhost";  // TODO improve hacky configuration for other set ups
+static int   mqttBrokerPort = 1883;
 static const int keepalive = 60;
 static const bool clean_session = true;
 
@@ -689,7 +690,7 @@ int main(int argc, char **argv){
     stacklog = log4c_category_get("MQTTStack");
     hrflog = log4c_category_get("hrf");
 
-    while ((c = getopt (argc, argv, "r:")) != -1) {
+    while ((c = getopt (argc, argv, "r:h:p:")) != -1) {
         switch (c) {
             case 'r':
                 repeat_send = atoi(optarg);
@@ -698,7 +699,13 @@ int main(int argc, char **argv){
                     return ERROR_INVALID_PARAM;
                 }
                 break;
-
+	    // hack basic support for overriding host and port
+	    case 'h':
+		mqttBrokerHost = optarg;
+		break;
+            case 'p':
+		mqttBrokerPort = atoi(optarg);
+	        break;
             default:
                 log4c_category_crit(clientlog, "Invalid parameter");
                 return ERROR_INVALID_PARAM;
