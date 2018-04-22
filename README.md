@@ -3,7 +3,7 @@ MQTT client for Energenie [ener314-rt board](https://energenie4u.co.uk/catalogue
 
 Please note that this is for the 'two way' ener314-rt board, which is different from 'one way' ener314 board, and does not work for the 'one way' board.
 
-![ener314-rt board](https://energenie4u.co.uk/res/images/products/medium/RXTX Board Front L.jpg)
+![ener314-rt board](https://energenie4u.co.uk/res/images/products/large/ENER314-RT.jpg)
 
 engMQTTClient uses the mosquitto MQTT client library to do the MQTT handling.  Communication with the Energenie products is developed from the code in the energenie example directory eTRV/eTRV\_TX/HopeRF-TX-RX
 
