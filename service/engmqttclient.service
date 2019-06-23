@@ -1,0 +1,12 @@
+[Unit]
+Description=Energenie MQTT systemd service.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/bin/bash /usr/bin/engMQTTClient_service.sh
+
+[Install]
+WantedBy=multi-user.target
