@@ -760,9 +760,7 @@ int main(int argc, char **argv){
 
     if ((mqttBrokerUser[0] != '\0')
         && (mqttBrokerPass[0] != '\0')) {
-        printf("Setting username='%s' and password='%s'\n", mqttBrokerUser, mqttBrokerPass);
         mosquitto_username_pw_set(mosq, mqttBrokerUser, mqttBrokerPass);
-
     }
 
     mosquitto_log_callback_set(mosq, my_log_callback);
