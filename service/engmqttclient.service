@@ -1,0 +1,16 @@
+[Unit]
+Description=Energenie MQTT systemd service.
+Wants=network-online.target
+After=network-online.target
+#Wants=mosquitto.service
+#After=mosquitto.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/engMQTTClient_service.sh
+Restart=on-failure
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target
