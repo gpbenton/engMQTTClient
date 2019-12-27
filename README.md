@@ -218,6 +218,7 @@ sensor lounge:
     unit_of_measurement: "°C"
 
 ```
+An larger example of a HomeAssistant package for an eTRV  is shown in the Wiki.
 
 ## License
 This code is published under the MIT License.  The last paragraph is important.  If running this code causes your device to fail, I'm not responsible.
