@@ -92,6 +92,8 @@ SOFTWARE.
 // host and port can be overriden at run time
 static char* mqttBrokerHost =  "localhost";  // TODO improve hacky configuration for other set ups
 static int   mqttBrokerPort = 1883;
+static char* mqttBrokerUser = "";
+static char* mqttBrokerPass = "";
 static const int keepalive = 60;
 static const bool clean_session = true;
 
@@ -690,7 +692,7 @@ int main(int argc, char **argv){
     stacklog = log4c_category_get("MQTTStack");
     hrflog = log4c_category_get("hrf");
 
-    while ((c = getopt (argc, argv, "r:h:p:")) != -1) {
+    while ((c = getopt (argc, argv, "r:h:p:u:P:")) != -1) {
         switch (c) {
             case 'r':
                 repeat_send = atoi(optarg);
@@ -706,6 +708,12 @@ int main(int argc, char **argv){
             case 'p':
 		mqttBrokerPort = atoi(optarg);
 	        break;
+            case 'u':
+                mqttBrokerUser = optarg;
+                break;
+            case 'P':
+                mqttBrokerPass = optarg;
+                break;
             default:
                 log4c_category_crit(clientlog, "Invalid parameter");
                 return ERROR_INVALID_PARAM;
@@ -749,6 +757,12 @@ int main(int argc, char **argv){
         log4c_category_log(clientlog, LOG4C_PRIORITY_CRIT, "Out of memory");
         return ERROR_MOSQ_NEW;
     }
+
+    if ((mqttBrokerUser[0] != '\0')
+        && (mqttBrokerPass[0] != '\0')) {
+        mosquitto_username_pw_set(mosq, mqttBrokerUser, mqttBrokerPass);
+    }
+
     mosquitto_log_callback_set(mosq, my_log_callback);
     mosquitto_connect_callback_set(mosq, my_connect_callback);
     mosquitto_message_callback_set(mosq, my_message_callback);

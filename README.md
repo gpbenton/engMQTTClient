@@ -81,6 +81,8 @@ assuming log4c has been placed in /usr/local/lib as per default.
 | -h     | string    | localhost   | host address of MQTT Broker |
 | -p     | integer   | 1883        | port of MQTT Broker |
 | -r     | integer   | 8           | Number of times ook message is sent.  Increase if you are experiencing communication difficulties with switches |
+| -u     | string    | ""          | username to connect to MQTT Broker |
+| -P     | string    | ""          | password to connect to MQTT Broker |
 
 ### MQTT Topic structure
 
@@ -216,6 +218,7 @@ sensor lounge:
     unit_of_measurement: "°C"
 
 ```
+An larger example of a HomeAssistant package for an eTRV  is shown in the Wiki.
 
 ## License
 This code is published under the MIT License.  The last paragraph is important.  If running this code causes your device to fail, I'm not responsible.
