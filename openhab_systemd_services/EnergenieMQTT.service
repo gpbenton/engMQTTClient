@@ -1,0 +1,26 @@
+[Unit]
+Description=Energenie MQTT service
+Documentation=https://github.com/gpbenton/engMQTTClient/blob/master/README.md
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root              
+WorkingDirectory=/usr/share/openhab2                              
+Environment=LD_LIBRARY_PATH=/usr/local/lib
+ExecStart=/bin/sh -c 'exec /usr/local/bin/engMQTTClient'
+#StandardOutput=append:/var/log/EnergenieMQTT.service.log
+#StandardError=inherit
+User=openhab
+Group=openhab
+SuccessExitStatus=0 143
+RestartSec=5
+Restart=on-failure
+TimeoutStopSec=120
+LimitNOFILE=102642
+
+[Install]
+WantedBy=multi-user.target

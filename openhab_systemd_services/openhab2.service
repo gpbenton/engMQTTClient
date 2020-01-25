@@ -1,0 +1,33 @@
+[Unit]
+Description=openHAB 2 - empowering the smart home
+Documentation=https://www.openhab.org/docs/
+Documentation=https://community.openhab.org
+Wants=network-online.target
+Requires=EnergenieMQTT.service
+After=network-online.target
+
+[Service]
+Environment=OPENHAB_HOME=/usr/share/openhab2
+Environment=OPENHAB_CONF=/etc/openhab2
+Environment=OPENHAB_RUNTIME=/usr/share/openhab2/runtime
+Environment=OPENHAB_USERDATA=/var/lib/openhab2
+Environment=OPENHAB_LOGDIR=/var/log/openhab2
+Environment=OPENHAB_STARTMODE=daemon
+EnvironmentFile=-/etc/default/openhab2
+
+User=openhab
+Group=openhab
+
+WorkingDirectory=/usr/share/openhab2
+ExecStart=/usr/share/openhab2/runtime/bin/karaf ${OPENHAB_STARTMODE}
+ExecStop=/usr/share/openhab2/runtime/bin/karaf stop
+
+SuccessExitStatus=0 143
+RestartSec=5
+Restart=on-failure
+TimeoutStopSec=120
+
+LimitNOFILE=102642
+
+[Install]
+WantedBy=multi-user.target
