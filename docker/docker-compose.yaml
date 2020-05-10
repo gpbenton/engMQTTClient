@@ -1,0 +1,28 @@
+version: '3'
+services:
+  energenie_mqtt_client:
+    image: gpbenton/engmqttclient:1.0.0
+    restart: unless-stopped
+    container_name: energenie_mqtt_client
+    privileged: true
+    working_dir: /opt/energenie_mqtt_client/
+    network_mode: host
+    command: ["-h", "192.168.0.3"]
+
+  # Remove if you already have mosquitto installed elsewhere 
+  mosquitto: 
+    container_name: mosquitto
+    restart: unless-stopped
+    image: eclipse-mosquitto
+    volumes:
+      - ./mosquitto_config:/mosquitto/config:ro
+      - mosquitto_persistence_database:/mosquitto/data
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+      - "9001:9001"
+
+volumes:
+  mosquitto_persistence_database:
+
