@@ -12,7 +12,14 @@ docker run --name engmqtt --privileged --network "host" --rm gpbenton/engmqttcli
 for example
 docker run --name engmqtt --privileged --network "host" --rm gpbenton/engmqttclient:1.0.0 -h 192.168.0.3
 
+To stop this, in another window type
+docker stop engmqtt
+
 The docker-compose file includes a container running a mosquitto mqtt broker.  Remove this if you already have a broker running.  To run this simply
 
-docker-compose up
+docker-compose up -d
  
+To see the logs type
+docker-compose logs
+
+An example systemd service file is supplied in case you wish to use this instead of docker-compose, but isn't tested, so may need some tweeking.

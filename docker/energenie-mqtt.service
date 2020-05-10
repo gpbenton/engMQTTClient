@@ -1,0 +1,10 @@
+[Unit]
+Description=Energenie MQTT Client service
+Requires=docker.service
+After=docker.service
+[Service]
+# Add any parameters you require to the end of the command
+ExecStart=/usr/bin/docker run --name engmqtt --privileged --network "host" --rm gpbenton/engmqttclient:1.0.0
+ExecStop=/usr/bin/docker stop engmqtt
+[Install]
+WantedBy=multi-user.target
