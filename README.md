@@ -42,6 +42,25 @@ where _Report_ can be
 | Diagnostics | 2 bytes | byte 0 = low byte, 1 = high byte
 | Voltage | Ascii String | Reported Battery Voltage
 
+## Running
+
+Thanks to excellent work by @setdetnet, the preferred method of running the program is now through [docker](docker/README.md).  The parameters below can still be added to the docker command if necessary.
+
+Run the program as root using
+
+        sudo LD_LIBRARY_PATH=/usr/local/lib ./engMQTTClient
+
+assuming log4c has been placed in /usr/local/lib as per default.
+
+### Parameters
+| Option | Parameter | Default     |Description |
+|--------|-----------|-------------|------------|
+| -h     | string    | localhost   | host address of MQTT Broker |
+| -p     | integer   | 1883        | port of MQTT Broker |
+| -r     | integer   | 8           | Number of times ook message is sent.  Increase if you are experiencing communication difficulties with switches |
+| -u     | string    | ""          | username to connect to MQTT Broker |
+| -P     | string    | ""          | password to connect to MQTT Broker |
+
 ## Building
 
 ### Prerequisites
@@ -66,23 +85,6 @@ mosquitto-clients - Mosquitto command line MQTT clients
 ### Building engMQTTClient
 
 Clone this repository and compile engMQTTClient using 'make'.
-
-## Running
-
-Run the program as root using
-
-        sudo LD_LIBRARY_PATH=/usr/local/lib ./engMQTTClient
-
-assuming log4c has been placed in /usr/local/lib as per default.
-
-### Parameters
-| Option | Parameter | Default     |Description |
-|--------|-----------|-------------|------------|
-| -h     | string    | localhost   | host address of MQTT Broker |
-| -p     | integer   | 1883        | port of MQTT Broker |
-| -r     | integer   | 8           | Number of times ook message is sent.  Increase if you are experiencing communication difficulties with switches |
-| -u     | string    | ""          | username to connect to MQTT Broker |
-| -P     | string    | ""          | password to connect to MQTT Broker |
 
 ### MQTT Topic structure
 
