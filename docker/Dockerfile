@@ -1,6 +1,6 @@
 # Base image is gcc build env
 
-FROM gcc:8.3.0
+FROM gcc:8.3.0 as builder
 
 # log4c
 
@@ -36,11 +36,30 @@ RUN curl -SL http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key | apt-key a
 WORKDIR /opt/energenie_mqtt_client
 RUN git clone https://github.com/gpbenton/engMQTTClient.git \
     && cd engMQTTClient \
-    && make \
-    && cp engMQTTClient /opt/energenie_mqtt_client/engMQTTClient.exe \
-    && cp log4crc /opt/energenie_mqtt_client/ \
-    && rm -rf /opt/energenie_mqtt_client/engMQTTClient 
+    && make 
+
+
+#Run stage
+FROM debian:buster-slim
+
+RUN apt-get update && apt-get install -y curl gnupg libexpat1
+
+WORKDIR /opt/energenie_mqtt_client/mosquitto
+RUN curl -SL http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key | apt-key add - \
+    && curl -SL http://repo.mosquitto.org/debian/mosquitto-buster.list  -o /etc/apt/sources.list.d/mosquitto.list \
+    && apt-get update && apt-get install -y libmosquitto1 \
+    && rm -rf /opt/energenie_mqtt_client/mosquitto
+
+COPY --from=builder /opt/energenie_mqtt_client/engMQTTClient/engMQTTClient /usr/local/bin
+
+COPY --from=builder /usr/local/lib/liblog4c* /usr/local/lib/
+COPY --from=builder /usr/local/include/log4c.h /usr/local/include/
+COPY --from=builder /usr/local/include/log4c /usr/local/include/log4c/
+COPY --from=builder /usr/local/bin/log4c-config /usr/local/bin/
+
+COPY --from=builder /usr/local/lib/libbcm2835.a /usr/local/lib
+COPY --from=builder /usr/local/include/bcm2835.h /usr/local/include
 
 # FINISHED
 ENV LD_LIBRARY_PATH /usr/local/lib 
-ENTRYPOINT ["/opt/energenie_mqtt_client/engMQTTClient.exe"]
+ENTRYPOINT ["/usr/local/bin/engMQTTClient"]
